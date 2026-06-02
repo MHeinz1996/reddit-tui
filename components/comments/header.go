@@ -29,6 +29,7 @@ type CommentsHeader struct {
 	Title            string
 	Description      string
 	Author           string
+	AuthorFlair      string
 	Timestamp        string
 	Points           string
 	SortLabel        string
@@ -49,7 +50,7 @@ func (h CommentsHeader) View() string {
 	titleView := titleStyle.Render(utils.TruncateString(h.Title, h.W))
 	descriptionView := h.DescriptionStyle.Render(h.Description)
 
-	authorView := postAuthorStyle.Render(h.Author)
+	authorView := postAuthorStyle.Render(utils.AuthorWithFlair(h.Author, h.AuthorFlair))
 	timestampView := postTimestampStyle.Render(fmt.Sprintf("submitted %s by", h.Timestamp))
 	authorTimestampView := fmt.Sprintf("%s %s", timestampView, authorView)
 
@@ -67,6 +68,7 @@ func (h *CommentsHeader) SetContent(comments model.Comments, sort model.CommentS
 	h.Title = utils.NormalizeSubreddit(comments.Subreddit)
 	h.Description = comments.PostTitle
 	h.Author = comments.PostAuthor
+	h.AuthorFlair = comments.PostAuthorFlair
 	h.TotalComments = len(comments.Comments)
 	h.Timestamp = comments.PostTimestamp
 	h.Points = comments.PostPoints

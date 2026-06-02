@@ -61,14 +61,20 @@ func (p OldRedditPostsParser) ParsePosts(root common.HtmlNode) model.Posts {
 
 func (p OldRedditPostsParser) parsePost(n common.HtmlNode) model.Post {
 	var post model.Post
+
+	if tagline, ok := n.FindDescendant("p", "tagline"); ok {
+		if author, ok := tagline.FindChild("a", "author"); ok {
+			post.Author = author.Text()
+		}
+		post.AuthorFlair = common.UserFlairFromTagline(tagline)
+	}
+
 	for c := range n.Descendants() {
 		cNode := common.HtmlNode{Node: c}
 
 		if cNode.NodeEquals("a", "title") {
 			post.PostTitle = cNode.Text()
 			post.PostUrl = cNode.GetAttr("href")
-		} else if cNode.NodeEquals("a", "author") {
-			post.Author = cNode.Text()
 		} else if cNode.NodeEquals("a", "subreddit") {
 			post.Subreddit = cNode.Text()
 		} else if cNode.NodeEquals("time", "live-timestamp") {
@@ -87,6 +93,7 @@ func (p OldRedditPostsParser) parsePost(n common.HtmlNode) model.Post {
 func sanitizePost(post model.Post) model.Post {
 	post.PostTitle = utils.SanitizeDisplayText(post.PostTitle)
 	post.Author = utils.SanitizeDisplayText(post.Author)
+	post.AuthorFlair = utils.SanitizeDisplayText(post.AuthorFlair)
 	post.FriendlyDate = utils.SanitizeDisplayText(post.FriendlyDate)
 	post.TotalComments = utils.SanitizeDisplayText(post.TotalComments)
 	post.Subreddit = utils.SanitizeDisplayText(post.Subreddit)

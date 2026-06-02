@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"reddittui/utils"
 	"strings"
 	"time"
 )
@@ -9,6 +10,7 @@ import (
 type Post struct {
 	PostTitle     string    `json:"title"`
 	Author        string    `json:"author"`
+	AuthorFlair   string    `json:"authorFlair"`
 	Subreddit     string    `json:"subreddit"`
 	FriendlyDate  string    `json:"friendlyDate"`
 	Expiry        time.Time `json:"expiry"`
@@ -28,6 +30,10 @@ type Posts struct {
 	Expiry      time.Time
 }
 
+func (p Post) AuthorLabel() string {
+	return utils.AuthorWithFlair(p.Author, p.AuthorFlair)
+}
+
 func (p Post) Title() string {
 	return fmt.Sprintf(" %s  %s", p.TotalLikes, p.PostTitle)
 }
@@ -45,7 +51,7 @@ func (p Post) Description() string {
 		fmt.Fprintf(&sb, "%s comments  ", p.TotalComments)
 	}
 
-	fmt.Fprintf(&sb, "submitted %s by %s", p.FriendlyDate, p.Author)
+	fmt.Fprintf(&sb, "submitted %s by %s", p.FriendlyDate, p.AuthorLabel())
 	return sb.String()
 }
 

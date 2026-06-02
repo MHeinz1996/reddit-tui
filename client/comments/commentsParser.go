@@ -21,7 +21,7 @@ func (p OldRedditCommentsParser) ParseComments(root common.HtmlNode, url string)
 	var commentsList []model.Comment
 
 	commentsData.PostTitle = p.getTitle(root)
-	commentsData.PostAuthor = p.getPostAuthor(root)
+	commentsData.PostAuthor, commentsData.PostAuthorFlair = p.getPostAuthorInfo(root)
 	commentsData.PostTimestamp = p.getPostTimestamp(root)
 	commentsData.Subreddit = p.getSubreddit(root)
 	commentsData.PostPoints = p.getPostPoints(root)
@@ -80,6 +80,7 @@ func (p OldRedditCommentsParser) parseCommentNode(node common.HtmlNode, depth in
 		if authorNode, ok := taglineNode.FindChild("a", "author"); ok {
 			comment.Author = authorNode.Text()
 		}
+		comment.AuthorFlair = common.UserFlairFromTagline(taglineNode)
 
 		// Default to 1 point if the comment is too new to show points
 		points := "1 point"
@@ -97,6 +98,14 @@ func (p OldRedditCommentsParser) parseCommentNode(node common.HtmlNode, depth in
 		comment.Text = renderBodyContent(node, mdNode)
 	}
 
+	return sanitizeComment(comment)
+}
+
+func sanitizeComment(comment model.Comment) model.Comment {
+	comment.Author = utils.SanitizeDisplayText(comment.Author)
+	comment.AuthorFlair = utils.SanitizeDisplayText(comment.AuthorFlair)
+	comment.Points = utils.SanitizeDisplayText(comment.Points)
+	comment.Timestamp = utils.SanitizeDisplayText(comment.Timestamp)
 	return comment
 }
 
@@ -144,14 +153,19 @@ func (p OldRedditCommentsParser) getPostContent(root common.HtmlNode) (content, 
 	return "", ""
 }
 
-func (p OldRedditCommentsParser) getPostAuthor(root common.HtmlNode) string {
+func (p OldRedditCommentsParser) getPostAuthorInfo(root common.HtmlNode) (author, flair string) {
 	if linkListingNode, ok := root.FindDescendant("div", "sitetable", "linklisting"); ok {
-		if authorNode, ok := linkListingNode.FindDescendant("a", "author"); ok {
-			return authorNode.Text()
+		if tagline, ok := linkListingNode.FindDescendant("p", "tagline"); ok {
+			if authorNode, ok := tagline.FindChild("a", "author"); ok {
+				author = authorNode.Text()
+			}
+			flair = common.UserFlairFromTagline(tagline)
 		}
 	}
 
-	return ""
+	author = utils.SanitizeDisplayText(author)
+	flair = utils.SanitizeDisplayText(flair)
+	return author, flair
 }
 
 func (p OldRedditCommentsParser) getPostTimestamp(root common.HtmlNode) string {

@@ -169,7 +169,7 @@ func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
 	if i == c.selectedIndex {
 		authorStyle = selectedCommentAuthorStyle
 	}
-	authorView := authorStyle.Render(comment.Author)
+	authorView := authorStyle.Render(comment.AuthorLabel())
 	dateView := commentDateStyle.Render(comment.Timestamp)
 	pointsView = renderPoints(comment.Points)
 	authorAndDateView = fmt.Sprintf("%s • %s • %s", authorView, dateView, pointsView)
