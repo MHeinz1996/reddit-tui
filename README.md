@@ -81,6 +81,11 @@ reddittui --post 1iyuce4
   - **s**: Switch subreddits
 - Posts page
   - **L**: Load more posts
+  - **1**: Hot
+  - **2**: New
+  - **3**: Rising
+  - **4**: Top
+  - **5**: Controversial
 - Comments page
   - **o**: Open post link in browser
   - **space**: Collapse or expand the selected comment (top-level and leaf comments show as hidden; nested threads keep a summary line)

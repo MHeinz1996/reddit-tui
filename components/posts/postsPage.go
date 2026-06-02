@@ -23,6 +23,7 @@ const (
 
 type PostsPage struct {
 	Subreddit      string
+	sort           model.Sort
 	posts          model.Posts
 	redditClient   client.RedditClient
 	header         PostsHeader
@@ -54,6 +55,7 @@ func NewPostsPage(redditClient client.RedditClient, home bool) PostsPage {
 		redditClient:   redditClient,
 		header:         header,
 		Home:           home,
+		sort:           model.SortHot,
 		containerStyle: containerStyle,
 	}
 }
@@ -96,6 +98,16 @@ func (p PostsPage) handleGlobalMessages(msg tea.Msg) (PostsPage, tea.Cmd) {
 			return p, p.loadMorePosts()
 		}
 
+	case messages.ChangePostsSortMsg:
+		if p.Home == msg.Home {
+			if p.sort == msg.Sort {
+				return p, messages.LoadingComplete
+			}
+
+			p.sort = msg.Sort
+			return p, p.reloadPosts()
+		}
+
 	case messages.UpdatePostsMsg:
 		posts := model.Posts(msg)
 		if posts.IsHome == p.Home {
@@ -133,6 +145,12 @@ func (p PostsPage) handleFocusedMessages(msg tea.Msg) (PostsPage, tea.Cmd) {
 
 		case "L":
 			return p, messages.LoadMorePosts(p.Home)
+
+		case "1", "2", "3", "4", "5":
+			sort, ok := model.SortForKey(keypress)
+			if ok {
+				return p, messages.ChangePostsSort(p.Home, sort)
+			}
 
 		case "H":
 			return p, messages.LoadHome
@@ -185,9 +203,36 @@ func (p *PostsPage) resizeComponents() {
 }
 
 func (p *PostsPage) loadHome() tea.Cmd {
+	p.sort = model.SortHot
+
 	return func() tea.Msg {
-		posts, err := p.redditClient.GetHomePosts("")
+		posts, err := p.redditClient.GetHomePosts("", p.sort)
 		if err != nil {
+			slog.Error(postsErrorText, "error", err)
+			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
+		}
+
+		return messages.UpdatePostsMsg(posts)
+	}
+}
+
+func (p *PostsPage) reloadPosts() tea.Cmd {
+	return func() tea.Msg {
+		var (
+			posts model.Posts
+			err   error
+		)
+
+		if p.Home {
+			posts, err = p.redditClient.GetHomePosts("", p.sort)
+		} else {
+			posts, err = p.redditClient.GetSubredditPosts(p.Subreddit, "", p.sort)
+		}
+
+		if err == common.ErrNotFound {
+			slog.Error(subredditNotFoundText, "error", err, "subreddit", p.Subreddit)
+			return messages.ShowErrorModalMsg{ErrorMsg: fmt.Sprintf("%s: %s", subredditNotFoundText, p.Subreddit)}
+		} else if err != nil {
 			slog.Error(postsErrorText, "error", err)
 			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
 		}
@@ -209,9 +254,9 @@ func (p *PostsPage) loadMorePosts() tea.Cmd {
 		}
 
 		if p.posts.IsHome {
-			posts, err = p.redditClient.GetHomePosts(p.posts.After)
+			posts, err = p.redditClient.GetHomePosts(p.posts.After, p.sort)
 		} else {
-			posts, err = p.redditClient.GetSubredditPosts(p.Subreddit, p.posts.After)
+			posts, err = p.redditClient.GetSubredditPosts(p.Subreddit, p.posts.After, p.sort)
 		}
 
 		if err != nil {
@@ -224,8 +269,10 @@ func (p *PostsPage) loadMorePosts() tea.Cmd {
 }
 
 func (p PostsPage) loadSubreddit(subreddit string) tea.Cmd {
+	p.sort = model.SortHot
+
 	return func() tea.Msg {
-		posts, err := p.redditClient.GetSubredditPosts(subreddit, "")
+		posts, err := p.redditClient.GetSubredditPosts(subreddit, "", p.sort)
 		if err == common.ErrNotFound {
 			slog.Error(subredditNotFoundText, "error", err, "subreddit", subreddit)
 			return messages.ShowErrorModalMsg{ErrorMsg: fmt.Sprintf("%s: %s", subredditNotFoundText, subreddit)}
@@ -240,11 +287,14 @@ func (p PostsPage) loadSubreddit(subreddit string) tea.Cmd {
 
 func (p *PostsPage) updatePosts(posts model.Posts) {
 	p.posts = posts
+	if posts.Sort != "" {
+		p.sort = posts.Sort
+	}
 
 	if posts.IsHome {
-		p.header.SetContent(defaultHeaderTitle, defaultHeaderDescription)
+		p.header.SetContent(defaultHeaderTitle, p.sortDescription(defaultHeaderDescription))
 	} else {
-		p.header.SetContent(posts.Subreddit, posts.Description)
+		p.header.SetContent(posts.Subreddit, p.sortDescription(posts.Description))
 		p.Subreddit = posts.Subreddit
 	}
 
@@ -285,4 +335,13 @@ func (p *PostsPage) addPosts(posts model.Posts) {
 
 	// Need to set size again when content loads so padding and margins are correct
 	p.resizeComponents()
+}
+
+func (p PostsPage) sortDescription(description string) string {
+	sortLabel := fmt.Sprintf("sorted by %s", p.sort.Label())
+	if len(description) == 0 {
+		return sortLabel
+	}
+
+	return fmt.Sprintf("%s • %s", description, sortLabel)
 }

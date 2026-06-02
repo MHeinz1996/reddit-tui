@@ -76,7 +76,7 @@ func getInitCmd(baseUrl, subreddit, post string) tea.Cmd {
 }
 
 func (r RedditTui) Init() tea.Cmd {
-	return messages.LoadHome
+	return r.initCmd
 }
 
 func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -147,6 +147,13 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case messages.LoadMorePostsMsg:
+		r.focusModal()
+		r.loadingPage = r.page
+
+		cmd = r.modalManager.SetLoading("loading posts...")
+		cmds = append(cmds, cmd)
+
+	case messages.ChangePostsSortMsg:
 		r.focusModal()
 		r.loadingPage = r.page
 
@@ -240,17 +247,10 @@ func (r *RedditTui) setPage(page pageType) {
 }
 
 func (r *RedditTui) completeLoading() tea.Cmd {
-	initializing := r.initializing
-
 	r.initializing = false
 	r.popup = false
 	r.setPage(r.loadingPage)
 	r.focusActivePage()
-
-	if initializing {
-		r.initializing = false
-		return r.initCmd
-	}
 
 	return r.modalManager.Blur()
 }

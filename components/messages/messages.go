@@ -11,6 +11,11 @@ type ErrorModalMsg struct {
 	OnClose  tea.Cmd
 }
 
+type ChangePostsSortMsg struct {
+	Home bool
+	Sort model.Sort
+}
+
 type (
 	CleanCacheMsg      struct{}
 	GoBackMsg          struct{}
@@ -47,6 +52,12 @@ func LoadHome() tea.Msg {
 func LoadMorePosts(home bool) tea.Cmd {
 	return func() tea.Msg {
 		return LoadMorePostsMsg(home)
+	}
+}
+
+func ChangePostsSort(home bool, sort model.Sort) tea.Cmd {
+	return func() tea.Msg {
+		return ChangePostsSortMsg{Home: home, Sort: sort}
 	}
 }
 

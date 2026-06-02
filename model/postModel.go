@@ -22,6 +22,7 @@ type Posts struct {
 	Description string
 	Subreddit   string
 	IsHome      bool
+	Sort        Sort
 	Posts       []Post
 	After       string
 	Expiry      time.Time
