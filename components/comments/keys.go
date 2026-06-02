@@ -19,19 +19,19 @@ type viewportKeyMap struct {
 var commentsKeys = viewportKeyMap{
 	CursorUp: key.NewBinding(
 		key.WithKeys("up", "k"),
-		key.WithHelp("↑/k", "up"),
+		key.WithHelp("↑/k", "prev comment"),
 	),
 	CursorDown: key.NewBinding(
 		key.WithKeys("down", "j"),
-		key.WithHelp("↓/j", "down"),
+		key.WithHelp("↓/j", "next comment"),
 	),
 	GoToStart: key.NewBinding(
 		key.WithKeys("home", "g"),
-		key.WithHelp("g/home", "go to start"),
+		key.WithHelp("g/home", "first comment"),
 	),
 	GoToEnd: key.NewBinding(
 		key.WithKeys("end", "G"),
-		key.WithHelp("G/end", "go to end"),
+		key.WithHelp("G/end", "last comment"),
 	),
 	OpenPost: key.NewBinding(
 		key.WithKeys("o", "O"),
@@ -42,8 +42,8 @@ var commentsKeys = viewportKeyMap{
 		key.WithHelp("H", "go home"),
 	),
 	CollapseComments: key.NewBinding(
-		key.WithKeys("c"),
-		key.WithHelp("c", "collapse comments"),
+		key.WithKeys(" ", "space"),
+		key.WithHelp("space", "collapse/expand"),
 	),
 	ShowFullHelp: key.NewBinding(
 		key.WithKeys("?"),

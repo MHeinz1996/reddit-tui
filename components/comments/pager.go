@@ -14,23 +14,28 @@ import (
 )
 
 type CommentsViewport struct {
-	viewport      viewport.Model
-	postText      string
-	postUrl       string
-	comments      []model.Comment
-	keyMap        viewportKeyMap
-	help          help.Model
-	collapsed     bool
-	viewportLines []string
-	w, h          int
+	viewport        viewport.Model
+	postText        string
+	postUrl         string
+	comments        []model.Comment
+	keyMap          viewportKeyMap
+	help            help.Model
+	collapsed       map[int]bool
+	selectedIndex   int
+	commentStartLine map[int]int
+	commentEndLine   map[int]int
+	w, h            int
 }
 
 func NewCommentsViewport() CommentsViewport {
 	return CommentsViewport{
-		viewport:  viewport.New(0, 0),
-		keyMap:    commentsKeys,
-		help:      help.New(),
-		collapsed: false,
+		viewport:         viewport.New(0, 0),
+		keyMap:           commentsKeys,
+		help:             help.New(),
+		collapsed:        make(map[int]bool),
+		selectedIndex:    -1,
+		commentStartLine: make(map[int]int),
+		commentEndLine:   make(map[int]int),
 	}
 }
 
@@ -38,15 +43,25 @@ func (c CommentsViewport) Update(msg tea.Msg) (CommentsViewport, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch {
+		case key.Matches(msg, c.keyMap.CursorUp):
+			c.moveSelection(-1)
+			return c, nil
+		case key.Matches(msg, c.keyMap.CursorDown):
+			c.moveSelection(1)
+			return c, nil
 		case key.Matches(msg, c.keyMap.GoToStart):
-			c.viewport.GotoTop()
+			c.selectFirst()
+			return c, nil
 		case key.Matches(msg, c.keyMap.GoToEnd):
-			c.viewport.GotoBottom()
+			c.selectLast()
+			return c, nil
 		case key.Matches(msg, c.keyMap.CollapseComments):
-			c.toggleCollapseComments()
+			c.toggleCollapseSelected()
+			return c, nil
 		case key.Matches(msg, c.keyMap.ShowFullHelp),
 			key.Matches(msg, c.keyMap.CloseFullHelp):
 			c.help.ShowAll = !c.help.ShowAll
+			return c, nil
 		}
 	}
 
@@ -74,7 +89,12 @@ func (c *CommentsViewport) SetContent(comments model.Comments) {
 	c.postUrl = comments.PostUrl
 	c.comments = comments.Comments
 
-	c.collapsed = false
+	c.collapsed = make(map[int]bool)
+	c.selectedIndex = -1
+	if len(c.comments) > 0 {
+		c.selectedIndex = 0
+	}
+
 	c.viewport.SetYOffset(0)
 	c.ResizeComponents()
 	c.SetViewportContent()
@@ -88,64 +108,68 @@ func (c *CommentsViewport) ResizeComponents() {
 }
 
 func (c *CommentsViewport) GetViewportView() string {
-	var content strings.Builder
+	var parts []string
 
 	if len(c.postText) > 0 {
-		content.WriteString(c.postText)
-		content.WriteString("\n")
+		parts = append(parts, c.postText)
 	} else {
-		content.WriteString(c.postUrl)
-		content.WriteString("\n\n")
+		parts = append(parts, c.postUrl)
 	}
 
-	for i := range len(c.comments) {
-		comment := c.comments[i]
-		commentView := c.formatComment(comment, i)
-		if len(commentView) > 0 {
-			content.WriteString(commentView)
-			content.WriteString("\n\n")
+	c.commentStartLine = make(map[int]int)
+	c.commentEndLine = make(map[int]int)
+
+	postSection := parts[0]
+	lineOffset := lipgloss.Height(postSection)
+	currentLine := lineOffset
+
+	for i := range c.comments {
+		if c.isHidden(i) {
+			continue
 		}
+
+		c.commentStartLine[i] = currentLine
+		commentView := c.formatComment(c.comments[i], i)
+		if len(commentView) == 0 {
+			continue
+		}
+
+		parts = append(parts, commentView)
+		commentHeight := lipgloss.Height(commentView)
+		currentLine += commentHeight + 2
+		c.commentEndLine[i] = currentLine - 3
 	}
 
-	return content.String()
+	return strings.Join(parts, "\n\n")
 }
 
 func (c *CommentsViewport) SetViewportContent() {
 	content := c.GetViewportView()
 	c.viewport.SetContent(content)
-	c.viewportLines = strings.Split(content, "\n")
 }
 
-// Format comment, adding padding to the entry according to the comment's depth
 func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
 	var (
 		authorAndDateView          string
 		pointsView                 string
 		pointsAndCollapsedHintView string
 		paddingW                   = comment.Depth * 2
-		containerStyle             = lipgloss.NewStyle().PaddingLeft(paddingW).Width(c.w - paddingW)
 	)
 
-	if c.collapsed && comment.Depth > 0 {
-		return ""
-	}
+	containerStyle := lipgloss.NewStyle().PaddingLeft(paddingW).Width(c.w - paddingW)
 
-	authorView := commentAuthorStyle.Render(comment.Author)
+	authorStyle := commentAuthorStyle
+	if i == c.selectedIndex {
+		authorStyle = selectedCommentAuthorStyle
+	}
+	authorView := authorStyle.Render(comment.Author)
 	dateView := commentDateStyle.Render(comment.Timestamp)
 	authorAndDateView = fmt.Sprintf("%s • %s", authorView, dateView)
 	pointsView = renderPoints(comment.Points)
 	pointsAndCollapsedHintView = pointsView
 
-	if c.collapsed {
-		children := 0
-		for j := i + 1; j < len(c.comments); j++ {
-			nextComment := c.comments[j]
-			if nextComment.Depth == 0 {
-				break
-			}
-			children++
-		}
-
+	if c.collapsed[i] {
+		children := c.countDescendants(i)
 		if children == 1 {
 			collapsedHintView := collapsedStyle.Render("(1 comment hidden)")
 			pointsAndCollapsedHintView = fmt.Sprintf("%s  %s", pointsView, collapsedHintView)
@@ -181,77 +205,150 @@ func renderPoints(pointsString string) string {
 	return defaultPointsStyle.Render(pointsString)
 }
 
-func (c *CommentsViewport) toggleCollapseComments() {
-	pos, title, text := c.findAnchorComment()
-	if pos < 0 {
+func (c *CommentsViewport) moveSelection(delta int) {
+	visible := c.visibleIndices()
+	if len(visible) == 0 {
+		c.selectedIndex = -1
 		return
 	}
 
-	offset := pos - c.viewport.YOffset
+	currentPos := -1
+	for i, idx := range visible {
+		if idx == c.selectedIndex {
+			currentPos = i
+			break
+		}
+	}
 
-	c.collapsed = !c.collapsed
+	if currentPos < 0 {
+		c.selectedIndex = visible[0]
+	} else {
+		newPos := currentPos + delta
+		if newPos < 0 {
+			newPos = 0
+		} else if newPos >= len(visible) {
+			newPos = len(visible) - 1
+		}
+		c.selectedIndex = visible[newPos]
+	}
+
 	c.SetViewportContent()
-
-	newPos := c.findComment(title, text)
-	c.viewport.SetYOffset(newPos - offset)
+	c.ensureSelectedVisible()
 }
 
-// Find comment closest to the center of the screen to act as an anchor when toggling
-// child comments.
-func (c *CommentsViewport) findAnchorComment() (pos int, title string, text string) {
-	findAnchorHelper := func(start, offset int) int {
-		for i := start; i >= 0 && i < len(c.viewportLines); i += offset {
-			line := c.viewportLines[i]
-			if len(line) > 0 && line[0] == ' ' {
-				continue
-			}
-
-			split := strings.Split(line, "•")
-			if len(split) == 2 && strings.Contains(split[1], "ago") {
-				return i
-			}
-		}
-
-		return -1
+func (c *CommentsViewport) selectFirst() {
+	visible := c.visibleIndices()
+	if len(visible) == 0 {
+		c.selectedIndex = -1
+		return
 	}
 
-	// Don't use actual center of viewport since the header takes up some amount of space and
-	// users probably look closer to the top of the screen rather than the bottom
-	searchStart := c.viewport.YOffset + int(float64(c.viewport.Height)*0.4)
-
-	if searchStart >= len(c.viewportLines) {
-		searchStart = 0
-	}
-
-	// Look for the comment above and below the center of the screen. Calculate which comment is closer to
-	// the center of the screen
-	upPos := findAnchorHelper(searchStart, -1)
-	downPos := findAnchorHelper(searchStart, 1)
-
-	if upPos < 0 && downPos < 0 {
-		return -1, "", ""
-	} else if upPos >= 0 && downPos < 0 {
-		return upPos, c.viewportLines[upPos], c.viewportLines[upPos+1]
-	} else if upPos < 0 && downPos >= 0 {
-		return downPos, c.viewportLines[downPos], c.viewportLines[downPos+1]
-	}
-
-	upDiff, downDiff := searchStart-upPos, downPos-searchStart
-	if upDiff < downDiff {
-		return upPos, c.viewportLines[upPos], c.viewportLines[upPos+1]
-	}
-	return downPos, c.viewportLines[downPos], c.viewportLines[downPos+1]
+	c.selectedIndex = visible[0]
+	c.SetViewportContent()
+	c.viewport.GotoTop()
 }
 
-func (c *CommentsViewport) findComment(title, text string) int {
-	for i := range len(c.viewportLines) - 1 {
-		currTitle := c.viewportLines[i]
-		currText := c.viewportLines[i+1]
+func (c *CommentsViewport) selectLast() {
+	visible := c.visibleIndices()
+	if len(visible) == 0 {
+		c.selectedIndex = -1
+		return
+	}
 
-		if currTitle == title && currText == text {
-			return i
+	c.selectedIndex = visible[len(visible)-1]
+	c.SetViewportContent()
+	c.ensureSelectedVisible()
+}
+
+func (c *CommentsViewport) toggleCollapseSelected() {
+	if c.selectedIndex < 0 || !c.hasChildren(c.selectedIndex) {
+		return
+	}
+
+	if c.collapsed[c.selectedIndex] {
+		delete(c.collapsed, c.selectedIndex)
+	} else {
+		c.collapsed[c.selectedIndex] = true
+	}
+
+	c.SetViewportContent()
+	c.ensureSelectedVisible()
+}
+
+func (c *CommentsViewport) ensureSelectedVisible() {
+	if c.selectedIndex < 0 {
+		return
+	}
+
+	start, ok := c.commentStartLine[c.selectedIndex]
+	if !ok {
+		return
+	}
+
+	end := c.commentEndLine[c.selectedIndex]
+	if end < start {
+		end = start
+	}
+
+	viewTop := c.viewport.YOffset
+	viewBottom := viewTop + c.viewport.Height - 1
+
+	if start < viewTop {
+		c.viewport.SetYOffset(start)
+	} else if end > viewBottom {
+		newOffset := end - c.viewport.Height + 1
+		if newOffset < 0 {
+			newOffset = 0
+		}
+		c.viewport.SetYOffset(newOffset)
+	}
+}
+
+func (c *CommentsViewport) isHidden(i int) bool {
+	if i < 0 || i >= len(c.comments) {
+		return true
+	}
+
+	depth := c.comments[i].Depth
+	for j := i - 1; j >= 0; j-- {
+		if c.comments[j].Depth < depth {
+			if c.collapsed[j] {
+				return true
+			}
+			depth = c.comments[j].Depth
 		}
 	}
 
-	return -1
+	return false
+}
+
+func (c *CommentsViewport) visibleIndices() []int {
+	var indices []int
+	for i := range c.comments {
+		if !c.isHidden(i) {
+			indices = append(indices, i)
+		}
+	}
+	return indices
+}
+
+func (c *CommentsViewport) hasChildren(i int) bool {
+	return i+1 < len(c.comments) && c.comments[i+1].Depth > c.comments[i].Depth
+}
+
+func (c *CommentsViewport) countDescendants(i int) int {
+	if i >= len(c.comments) {
+		return 0
+	}
+
+	parentDepth := c.comments[i].Depth
+	count := 0
+	for j := i + 1; j < len(c.comments); j++ {
+		if c.comments[j].Depth <= parentDepth {
+			break
+		}
+		count++
+	}
+
+	return count
 }

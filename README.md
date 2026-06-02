@@ -1,5 +1,6 @@
 # Reddittui
 A lightweight terminal application for browsing Reddit from your command line. Powered by [bubbletea](https://github.com/charmbracelet/bubbletea)
+(Forked from [tonymajestro/reddit-tui](https://github.com/MHeinz1996/reddit-tui))
 
 ## Features
 - **Subreddit Browsing:** Navigate through your favorite subreddits.
@@ -22,7 +23,7 @@ https://github.com/user-attachments/assets/40d61ef3-3a95-4a26-8c49-bec616f6ae1c
 Clone the repository and run the install script: 
 
 ```bash
-git clone https://github.com/tonymajestro/reddit-tui.git reddittui
+git clone https://github.com/mheinz1996/reddit-tui.git reddittui
 cd reddittui
 ./install.sh
 ```
@@ -82,7 +83,9 @@ reddittui --post 1iyuce4
   - **L**: Load more posts
 - Comments page
   - **o**: Open post link in browser
-  - **c**: Collapse comments
+  - **space**: Collapse or expand replies on the selected comment
+  - **j/k, ↑/↓**: Move selection between comments
+  - **g/G**: Jump to first/last comment
 - Misc
   - **H:** Go to home page
   - **backspace**: Go back
