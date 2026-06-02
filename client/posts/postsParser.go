@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"reddittui/client/common"
 	"reddittui/model"
+	"reddittui/utils"
 	"strings"
 )
 
@@ -26,7 +27,7 @@ func (p OldRedditPostsParser) ParsePosts(root common.HtmlNode) model.Posts {
 			continue
 		}
 
-		post := p.parsePost(d)
+		post := sanitizePost(p.parsePost(d))
 		posts = append(posts, post)
 	}
 
@@ -83,6 +84,16 @@ func (p OldRedditPostsParser) parsePost(n common.HtmlNode) model.Post {
 	return post
 }
 
+func sanitizePost(post model.Post) model.Post {
+	post.PostTitle = utils.SanitizeDisplayText(post.PostTitle)
+	post.Author = utils.SanitizeDisplayText(post.Author)
+	post.FriendlyDate = utils.SanitizeDisplayText(post.FriendlyDate)
+	post.TotalComments = utils.SanitizeDisplayText(post.TotalComments)
+	post.Subreddit = utils.SanitizeDisplayText(post.Subreddit)
+	post.TotalLikes = utils.SanitizeDisplayText(post.TotalLikes)
+	return post
+}
+
 type RedlibParser struct {
 	BaseUrl string
 }
@@ -91,7 +102,7 @@ func (p RedlibParser) ParsePosts(root common.HtmlNode) model.Posts {
 	var posts model.Posts
 
 	for d := range root.FindDescendants("div", "post") {
-		post := p.parsePost(d)
+		post := sanitizePost(p.parsePost(d))
 		posts.Posts = append(posts.Posts, post)
 	}
 
