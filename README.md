@@ -83,7 +83,7 @@ reddittui --post 1iyuce4
   - **L**: Load more posts
 - Comments page
   - **o**: Open post link in browser
-  - **space**: Collapse or expand replies on the selected comment
+  - **space**: Collapse or expand the selected comment (top-level and leaf comments show as hidden; nested threads keep a summary line)
   - **j/k, ↑/↓**: Move selection between comments
   - **g/G**: Jump to first/last comment
 - Misc

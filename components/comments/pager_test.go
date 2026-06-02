@@ -2,6 +2,7 @@ package comments
 
 import (
 	"reddittui/model"
+	"strings"
 	"testing"
 )
 
@@ -60,13 +61,52 @@ func TestToggleCollapseSelected(t *testing.T) {
 	}
 }
 
-func TestToggleCollapseNoChildrenIsNoop(t *testing.T) {
+func TestToggleCollapseLeafComment(t *testing.T) {
 	c := NewCommentsViewport()
+	c.w = 80
 	c.comments = []model.Comment{{Author: "a", Text: "leaf", Depth: 0}}
 	c.selectedIndex = 0
 
 	c.toggleCollapseSelected()
-	if len(c.collapsed) != 0 {
-		t.Fatal("expected collapse to be ignored for comment without replies")
+	if !c.collapsed[0] {
+		t.Fatal("expected leaf comment to be collapsible")
+	}
+
+	view := c.formatComment(c.comments[0], 0)
+	if !strings.Contains(view, "comment hidden") {
+		t.Fatalf("expected hidden placeholder, got %q", view)
+	}
+	if strings.Contains(view, "leaf") {
+		t.Fatalf("expected comment body to be hidden, got %q", view)
+	}
+}
+
+func TestCollapsedTopLevelWithRepliesShowsPlaceholder(t *testing.T) {
+	c := NewCommentsViewport()
+	c.w = 80
+	c.comments = testComments()
+	c.collapsed[0] = true
+
+	view := c.formatComment(c.comments[0], 0)
+	if !strings.Contains(view, "comment hidden") {
+		t.Fatalf("expected hidden placeholder for collapsed top-level comment, got %q", view)
+	}
+	if strings.Contains(view, "root") {
+		t.Fatalf("expected top-level comment body to be hidden, got %q", view)
+	}
+}
+
+func TestCollapsedNestedWithRepliesShowsThreadHint(t *testing.T) {
+	c := NewCommentsViewport()
+	c.w = 80
+	c.comments = testComments()
+	c.collapsed[1] = true
+
+	view := c.formatComment(c.comments[1], 1)
+	if !strings.Contains(view, "reply") {
+		t.Fatalf("expected nested comment body to remain visible, got %q", view)
+	}
+	if !strings.Contains(view, "1 comment hidden") {
+		t.Fatalf("expected thread collapse hint, got %q", view)
 	}
 }

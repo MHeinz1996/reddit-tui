@@ -149,14 +149,22 @@ func (c *CommentsViewport) SetViewportContent() {
 }
 
 func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
+	paddingW := comment.Depth * 2
+	containerStyle := lipgloss.NewStyle().PaddingLeft(paddingW).Width(c.w - paddingW)
+
+	if c.collapsed[i] && c.showsHiddenPlaceholder(i) {
+		hiddenMsg := collapsedStyle.Render("(comment hidden)")
+		if i == c.selectedIndex {
+			hiddenMsg = selectedCommentAuthorStyle.Render("(comment hidden)")
+		}
+		return containerStyle.Render(hiddenMsg)
+	}
+
 	var (
 		authorAndDateView          string
 		pointsView                 string
 		pointsAndCollapsedHintView string
-		paddingW                   = comment.Depth * 2
 	)
-
-	containerStyle := lipgloss.NewStyle().PaddingLeft(paddingW).Width(c.w - paddingW)
 
 	authorStyle := commentAuthorStyle
 	if i == c.selectedIndex {
@@ -261,7 +269,7 @@ func (c *CommentsViewport) selectLast() {
 }
 
 func (c *CommentsViewport) toggleCollapseSelected() {
-	if c.selectedIndex < 0 || !c.hasChildren(c.selectedIndex) {
+	if c.selectedIndex < 0 {
 		return
 	}
 
@@ -273,6 +281,14 @@ func (c *CommentsViewport) toggleCollapseSelected() {
 
 	c.SetViewportContent()
 	c.ensureSelectedVisible()
+}
+
+func (c *CommentsViewport) showsHiddenPlaceholder(i int) bool {
+	if !c.collapsed[i] {
+		return false
+	}
+
+	return c.comments[i].Depth == 0 || !c.hasChildren(i)
 }
 
 func (c *CommentsViewport) ensureSelectedVisible() {
