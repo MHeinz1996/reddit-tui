@@ -161,9 +161,8 @@ func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
 	}
 
 	var (
-		authorAndDateView          string
-		pointsView                 string
-		pointsAndCollapsedHintView string
+		authorAndDateView string
+		pointsView        string
 	)
 
 	authorStyle := commentAuthorStyle
@@ -172,22 +171,21 @@ func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
 	}
 	authorView := authorStyle.Render(comment.Author)
 	dateView := commentDateStyle.Render(comment.Timestamp)
-	authorAndDateView = fmt.Sprintf("%s • %s", authorView, dateView)
 	pointsView = renderPoints(comment.Points)
-	pointsAndCollapsedHintView = pointsView
+	authorAndDateView = fmt.Sprintf("%s • %s • %s", authorView, dateView, pointsView)
 
 	if c.collapsed[i] {
 		children := c.countDescendants(i)
 		if children == 1 {
 			collapsedHintView := collapsedStyle.Render("(1 comment hidden)")
-			pointsAndCollapsedHintView = fmt.Sprintf("%s  %s", pointsView, collapsedHintView)
+			authorAndDateView = fmt.Sprintf("%s  %s", authorAndDateView, collapsedHintView)
 		} else if children > 1 {
 			collapsedView := collapsedStyle.Render(fmt.Sprintf("(%d comments hidden)", children))
-			pointsAndCollapsedHintView = fmt.Sprintf("%s  %s", pointsView, collapsedView)
+			authorAndDateView = fmt.Sprintf("%s  %s", authorAndDateView, collapsedView)
 		}
 	}
 
-	joined := lipgloss.JoinVertical(lipgloss.Left, authorAndDateView, comment.Text, pointsAndCollapsedHintView)
+	joined := lipgloss.JoinVertical(lipgloss.Left, authorAndDateView, comment.Text)
 	return containerStyle.Render(joined)
 }
 
