@@ -18,6 +18,8 @@ type CommentsPage struct {
 	header         CommentsHeader
 	pager          CommentsViewport
 	containerStyle lipgloss.Style
+	commentsUrl    string
+	sort           model.CommentSort
 	postUrl        string
 	focus          bool
 }
@@ -30,6 +32,7 @@ func NewCommentsPage(redditClient client.RedditClient) CommentsPage {
 		redditClient:   redditClient,
 		header:         header,
 		pager:          vp,
+		sort:           model.CommentSortBest,
 		containerStyle: styles.GlobalStyle,
 	}
 }
@@ -57,7 +60,24 @@ func (c CommentsPage) handleGlobalMessages(msg tea.Msg) (CommentsPage, tea.Cmd) 
 	switch msg := msg.(type) {
 	case messages.LoadCommentsMsg:
 		url := string(msg)
-		return c, c.loadComments(url)
+		baseURL, err := client.StripCommentsBaseUrl(url)
+		if err != nil {
+			slog.Error(commentsErrorText, "error", err)
+			return c, messages.ShowErrorModal(commentsErrorText)
+		}
+
+		c.commentsUrl = baseURL
+		c.sort = model.CommentSortBest
+		return c, c.fetchComments()
+
+	case messages.ChangeCommentsSortMsg:
+		if c.sort == msg.Sort {
+			return c, messages.LoadingComplete
+		}
+
+		c.sort = msg.Sort
+		return c, c.fetchComments()
+
 	case messages.UpdateCommentsMsg:
 		c.updateComments(model.Comments(msg))
 		return c, messages.LoadingComplete
@@ -78,6 +98,12 @@ func (c CommentsPage) handleFocusedMessages(msg tea.Msg) (CommentsPage, tea.Cmd)
 
 		case "o", "O":
 			return c, messages.OpenUrl(c.postUrl)
+
+		case "1", "2", "3", "4", "5":
+			sort, ok := model.CommentSortForKey(keypress)
+			if ok {
+				return c, messages.ChangeCommentsSort(sort)
+			}
 		}
 	}
 
@@ -118,9 +144,9 @@ func (c *CommentsPage) resizeComponents() {
 	c.pager.SetSize(w, pagerHeight)
 }
 
-func (c *CommentsPage) loadComments(url string) tea.Cmd {
+func (c CommentsPage) fetchComments() tea.Cmd {
 	return func() tea.Msg {
-		comments, err := c.redditClient.GetComments(url)
+		comments, err := c.redditClient.GetComments(c.commentsUrl, c.sort)
 		if err != nil {
 			slog.Error(commentsErrorText, "error", err)
 			return messages.ShowErrorModalMsg{ErrorMsg: commentsErrorText}
@@ -131,10 +157,13 @@ func (c *CommentsPage) loadComments(url string) tea.Cmd {
 }
 
 func (c *CommentsPage) updateComments(comments model.Comments) {
-	c.header.SetContent(comments)
+	if comments.Sort != "" {
+		c.sort = comments.Sort
+	}
+
+	c.header.SetContent(comments, c.sort)
 	c.pager.SetContent(comments)
 	c.postUrl = comments.PostUrl
 
-	// Need to resize components when content loads so padding and margins are correct
 	c.resizeComponents()
 }

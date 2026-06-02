@@ -93,8 +93,8 @@ func (p OldRedditCommentsParser) parseCommentNode(node common.HtmlNode, depth in
 		}
 	}
 
-	if usertextNode, ok := node.FindChild("form", "usertext"); ok {
-		comment.Text = strings.TrimSpace(renderHtmlNode(usertextNode))
+	if mdNode, ok := node.FindDescendant("div", "md"); ok {
+		comment.Text = renderBodyContent(node, mdNode)
 	}
 
 	return comment
@@ -114,15 +114,14 @@ func (p OldRedditCommentsParser) getPostContent(root common.HtmlNode) (content, 
 	if linkListingNode, ok := root.FindDescendant("div", "sitetable", "linklisting"); ok {
 		// self post
 		if mdNode, ok := linkListingNode.FindDescendant("div", "md"); ok {
-			postText := renderHtmlNode(mdNode)
+			postText := renderBodyContent(linkListingNode, mdNode)
 
 			// skip alb.reddit.com urls
 			if strings.Contains(postText, "alb.reddit.com") {
 				return "", ""
 			}
 
-			content = postTextTrimRegex.ReplaceAllString(postText, "\n\n")
-			return content, ""
+			return postText, ""
 		}
 	}
 
@@ -288,9 +287,7 @@ func (p RedlibCommentsParser) getPostContent(root common.HtmlNode) (content, url
 	// self post
 	if postBodyNode, ok := root.FindDescendant("div", "post_body"); ok {
 		if mdNode, ok := postBodyNode.FindDescendant("div", "md"); ok {
-			postText := renderHtmlNode(mdNode)
-			content = postTextTrimRegex.ReplaceAllString(postText, "\n\n")
-			return content, ""
+			return renderBodyContent(postBodyNode, mdNode), ""
 		}
 	}
 
@@ -358,8 +355,7 @@ func (p RedlibCommentsParser) parseCommentNode(node common.HtmlNode, depth int) 
 		}
 
 		if commentBodyNode, ok := node.FindDescendant("div", "md"); ok {
-			commentText := strings.TrimSpace(renderHtmlNode(commentBodyNode))
-			comment.Text = postTextTrimRegex.ReplaceAllString(commentText, "\n\n")
+			comment.Text = renderBodyContent(node, commentBodyNode)
 		}
 	}
 
@@ -368,13 +364,21 @@ func (p RedlibCommentsParser) parseCommentNode(node common.HtmlNode, depth int) 
 
 func renderHtmlNode(node common.HtmlNode) string {
 	var content strings.Builder
+
 	for child := range node.ChildNodes() {
 		cNode := common.HtmlNode{Node: child}
 
 		var nodeResults strings.Builder
 		renderHtmlNodeHelper(cNode, &nodeResults)
-		content.WriteString(nodeResults.String())
-		content.WriteString("\n")
+		section := strings.TrimSpace(nodeResults.String())
+		if section == "" {
+			continue
+		}
+
+		if content.Len() > 0 {
+			content.WriteString("\n")
+		}
+		content.WriteString(section)
 	}
 
 	return content.String()
@@ -383,15 +387,78 @@ func renderHtmlNode(node common.HtmlNode) string {
 func renderHtmlNodeHelper(node common.HtmlNode, results *strings.Builder) {
 	if node.Type == html.TextNode {
 		results.WriteString(node.Data)
-	} else if node.Tag() == "a" {
-		results.WriteString(common.RenderAnchor(node))
-		return
-	} else if node.Tag() == "li" {
-		results.WriteString(node.Text())
 		return
 	}
 
+	switch node.Tag() {
+	case "a":
+		results.WriteString(common.RenderAnchor(node))
+	case "br":
+		results.WriteString("\n")
+	case "p":
+		renderHtmlChildren(node, results)
+	case "ul":
+		renderListItems(node, results, "- ")
+	case "ol":
+		renderOrderedListItems(node, results)
+	case "li":
+		line := listItemText(node)
+		if line != "" {
+			results.WriteString("- ")
+			results.WriteString(line)
+			results.WriteString("\n")
+		}
+	default:
+		renderHtmlChildren(node, results)
+	}
+}
+
+func renderHtmlChildren(node common.HtmlNode, results *strings.Builder) {
 	for child := range node.ChildNodes() {
 		renderHtmlNodeHelper(common.HtmlNode{Node: child}, results)
 	}
+}
+
+func renderListItems(list common.HtmlNode, results *strings.Builder, prefix string) {
+	for child := range list.ChildNodes() {
+		item := common.HtmlNode{Node: child}
+		if item.Type != html.ElementNode || item.Tag() != "li" {
+			continue
+		}
+
+		line := listItemText(item)
+		if line == "" {
+			continue
+		}
+
+		results.WriteString(prefix)
+		results.WriteString(line)
+		results.WriteString("\n")
+	}
+}
+
+func renderOrderedListItems(list common.HtmlNode, results *strings.Builder) {
+	i := 1
+	for child := range list.ChildNodes() {
+		item := common.HtmlNode{Node: child}
+		if item.Type != html.ElementNode || item.Tag() != "li" {
+			continue
+		}
+
+		line := listItemText(item)
+		if line == "" {
+			continue
+		}
+
+		fmt.Fprintf(results, "%d. ", i)
+		i++
+		results.WriteString(line)
+		results.WriteString("\n")
+	}
+}
+
+func listItemText(item common.HtmlNode) string {
+	var itemContent strings.Builder
+	renderHtmlChildren(item, &itemContent)
+	return strings.TrimSpace(itemContent.String())
 }

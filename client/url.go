@@ -2,6 +2,8 @@ package client
 
 import (
 	"net/url"
+	"reddittui/client/comments"
+	"reddittui/model"
 )
 
 func NormalizeBaseUrl(baseUrl string) (string, error) {
@@ -31,4 +33,12 @@ func GetPostUrl(baseUrl, post string) (string, error) {
 
 	// User passed in url, use base URL instead of the one passed in
 	return url.JoinPath(baseUrl, parsed.Path)
+}
+
+func StripCommentsBaseUrl(rawURL string) (string, error) {
+	return comments.StripCommentSortParam(rawURL)
+}
+
+func BuildCommentsUrl(baseURL string, sort model.CommentSort) (string, error) {
+	return comments.BuildCommentsUrl(baseURL, sort)
 }

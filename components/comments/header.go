@@ -31,6 +31,7 @@ type CommentsHeader struct {
 	Author           string
 	Timestamp        string
 	Points           string
+	SortLabel        string
 	TotalComments    int
 	W                int
 }
@@ -54,18 +55,20 @@ func (h CommentsHeader) View() string {
 
 	postPointsView := postPointsStyle.Render(utils.GetSingularPlural(h.Points, "point", "points"))
 	totalCommentsView := totalCommentsStyle.Render(utils.GetSingularPlural(strconv.Itoa(h.TotalComments), "comment", "comments"))
-	pointsAndCommentsView := fmt.Sprintf("%s • %s", postPointsView, totalCommentsView)
+	sortView := postTimestampStyle.Render(fmt.Sprintf("sorted by %s", h.SortLabel))
+	pointsAndCommentsView := fmt.Sprintf("%s • %s • %s", postPointsView, totalCommentsView, sortView)
 
 	joinedView := lipgloss.JoinVertical(lipgloss.Left, titleView, descriptionView, authorTimestampView, pointsAndCommentsView)
 
 	return headerContainerStyle.Render(joinedView)
 }
 
-func (h *CommentsHeader) SetContent(comments model.Comments) {
+func (h *CommentsHeader) SetContent(comments model.Comments, sort model.CommentSort) {
 	h.Title = utils.NormalizeSubreddit(comments.Subreddit)
 	h.Description = comments.PostTitle
 	h.Author = comments.PostAuthor
 	h.TotalComments = len(comments.Comments)
 	h.Timestamp = comments.PostTimestamp
 	h.Points = comments.PostPoints
+	h.SortLabel = sort.Label()
 }

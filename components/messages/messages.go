@@ -16,6 +16,10 @@ type ChangePostsSortMsg struct {
 	Sort model.Sort
 }
 
+type ChangeCommentsSortMsg struct {
+	Sort model.CommentSort
+}
+
 type (
 	CleanCacheMsg      struct{}
 	GoBackMsg          struct{}
@@ -58,6 +62,12 @@ func LoadMorePosts(home bool) tea.Cmd {
 func ChangePostsSort(home bool, sort model.Sort) tea.Cmd {
 	return func() tea.Msg {
 		return ChangePostsSortMsg{Home: home, Sort: sort}
+	}
+}
+
+func ChangeCommentsSort(sort model.CommentSort) tea.Cmd {
+	return func() tea.Msg {
+		return ChangeCommentsSortMsg{Sort: sort}
 	}
 }
 

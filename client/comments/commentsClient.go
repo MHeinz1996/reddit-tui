@@ -44,9 +44,14 @@ func NewRedditCommentsClient(baseUrl, serverType string, httpClient *http.Client
 	}
 }
 
-func (r RedditCommentsClient) GetComments(url string) (comments model.Comments, err error) {
+func (r RedditCommentsClient) GetComments(baseURL string, sort model.CommentSort) (comments model.Comments, err error) {
 	totalTimer := utils.NewTimer("total time to retrieve comments")
 	defer totalTimer.StopAndLog()
+
+	url, err := BuildCommentsUrl(baseURL, sort)
+	if err != nil {
+		return comments, err
+	}
 
 	timer := utils.NewTimer("fetching comments from cache")
 	comments, err = r.Cache.Get(url)
@@ -87,6 +92,7 @@ func (r RedditCommentsClient) GetComments(url string) (comments model.Comments, 
 
 	timer = utils.NewTimer("converting comments html")
 	comments = r.Parser.ParseComments(common.HtmlNode{Node: doc}, url)
+	comments.Sort = sort
 	comments.Expiry = time.Now().Add(defaultTtl)
 	timer.StopAndLog()
 

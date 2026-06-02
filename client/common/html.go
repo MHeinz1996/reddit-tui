@@ -80,6 +80,23 @@ func (n HtmlNode) Text() string {
 	return ""
 }
 
+func (n HtmlNode) TextContent() string {
+	if n.Node == nil {
+		return ""
+	}
+
+	if n.Type == html.TextNode {
+		return n.Data
+	}
+
+	var content strings.Builder
+	for child := range n.ChildNodes() {
+		content.WriteString(HtmlNode{Node: child}.TextContent())
+	}
+
+	return content.String()
+}
+
 func (n HtmlNode) Tag() string {
 	return n.Data
 }

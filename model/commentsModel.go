@@ -15,15 +15,16 @@ type Comment struct {
 }
 
 type Comments struct {
-	PostTitle     string    `json:"title"`
-	PostAuthor    string    `json:"author"`
-	Subreddit     string    `json:"subreddit"`
-	PostPoints    string    `json:"points"`
-	PostText      string    `json:"text"`
-	PostUrl       string    `json:"url"`
-	PostTimestamp string    `json:"timestamp"`
-	Expiry        time.Time `json:"expiry"`
-	Comments      []Comment `json:"comments"`
+	PostTitle     string      `json:"title"`
+	PostAuthor    string      `json:"author"`
+	Subreddit     string      `json:"subreddit"`
+	PostPoints    string      `json:"points"`
+	PostText      string      `json:"text"`
+	PostUrl       string      `json:"url"`
+	PostTimestamp string      `json:"timestamp"`
+	Sort          CommentSort `json:"sort"`
+	Expiry        time.Time   `json:"expiry"`
+	Comments      []Comment   `json:"comments"`
 }
 
 func (c Comment) Title() string {

@@ -160,6 +160,13 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = r.modalManager.SetLoading("loading posts...")
 		cmds = append(cmds, cmd)
 
+	case messages.ChangeCommentsSortMsg:
+		r.focusModal()
+		r.loadingPage = CommentsPage
+
+		cmd = r.modalManager.SetLoading("loading comments...")
+		cmds = append(cmds, cmd)
+
 	case messages.LoadCommentsMsg:
 		r.focusModal()
 		r.loadingPage = CommentsPage

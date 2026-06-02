@@ -53,8 +53,8 @@ func (r RedditClient) GetSubredditPosts(subreddit, after string, sort model.Sort
 	return r.postsClient.GetSubredditPosts(subreddit, after, sort)
 }
 
-func (r RedditClient) GetComments(url string) (model.Comments, error) {
-	return r.commentsClient.GetComments(url)
+func (r RedditClient) GetComments(baseURL string, sort model.CommentSort) (model.Comments, error) {
+	return r.commentsClient.GetComments(baseURL, sort)
 }
 
 func (r RedditClient) CleanCache() {

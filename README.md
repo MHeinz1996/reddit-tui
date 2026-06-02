@@ -88,6 +88,11 @@ reddittui --post 1iyuce4
   - **5**: Controversial
 - Comments page
   - **o**: Open post link in browser
+  - **1**: Best comments
+  - **2**: New comments
+  - **3**: Top comments
+  - **4**: Controversial comments
+  - **5**: Old comments
   - **space**: Collapse or expand the selected comment (top-level and leaf comments show as hidden; nested threads keep a summary line)
   - **j/k, ↑/↓**: Move selection between comments
   - **g/G**: Jump to first/last comment
