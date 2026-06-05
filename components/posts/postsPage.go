@@ -131,12 +131,15 @@ func (p PostsPage) handleFocusedMessages(msg tea.Msg) (PostsPage, tea.Cmd) {
 	case tea.KeyMsg:
 		switch keypress := msg.String(); keypress {
 		case "enter", "right", "l":
-			loadCommentsCmd := func() tea.Msg {
-				post := p.posts.Posts[p.list.Index()]
-				return messages.LoadCommentsMsg(post.CommentsUrl)
+			item := p.list.SelectedItem()
+			post, ok := item.(model.Post)
+			if !ok {
+				return p, nil
 			}
 
-			return p, loadCommentsCmd
+			return p, func() tea.Msg {
+				return messages.LoadCommentsMsg(post.CommentsUrl)
+			}
 
 		case "q", "Q":
 			// Ignore q keystrokes to list.Modal. since it will default to sending a Quit message
@@ -311,30 +314,37 @@ func (p *PostsPage) updatePosts(posts model.Posts) {
 }
 
 func (p *PostsPage) addPosts(posts model.Posts) {
-	uniqueTitles := make(map[string]bool)
-
 	p.posts.Posts = append(p.posts.Posts, posts.Posts...)
+	p.posts.Posts = dedupePosts(p.posts.Posts)
 	p.posts.After = posts.After
 
-	// Merge existing posts with new posts, avoiding duplicates
 	var listItems []list.Item
-	for _, p := range p.posts.Posts {
-		if _, ok := uniqueTitles[p.PostTitle]; !ok {
-			listItems = append(listItems, p)
-			uniqueTitles[p.PostTitle] = true
-		}
+	for _, post := range p.posts.Posts {
+		listItems = append(listItems, post)
 	}
-	for _, p := range posts.Posts {
-		if _, ok := uniqueTitles[p.PostTitle]; !ok {
-			listItems = append(listItems, p)
-			uniqueTitles[p.PostTitle] = true
-		}
-	}
-
 	p.list.SetItems(listItems)
 
 	// Need to set size again when content loads so padding and margins are correct
 	p.resizeComponents()
+}
+
+func dedupePosts(posts []model.Post) []model.Post {
+	seen := make(map[string]struct{}, len(posts))
+	out := make([]model.Post, 0, len(posts))
+
+	for _, post := range posts {
+		key := post.CommentsUrl
+		if key == "" {
+			key = post.PostTitle + "|" + post.Author + "|" + post.FriendlyDate
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, post)
+	}
+
+	return out
 }
 
 func (p PostsPage) sortDescription(description string) string {
