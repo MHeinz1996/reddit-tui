@@ -35,6 +35,7 @@ type CommentsHeader struct {
 	SortLabel        string
 	TotalComments    int
 	W                int
+	maxHeight        int
 }
 
 func NewCommentsHeader() CommentsHeader {
@@ -44,6 +45,13 @@ func NewCommentsHeader() CommentsHeader {
 func (h *CommentsHeader) SetSize(width, height int) {
 	h.W = width - headerContainerStyle.GetHorizontalFrameSize()
 	h.DescriptionStyle = h.DescriptionStyle.Width(h.W)
+}
+
+// SetMaxHeight caps how many rows the header may occupy, trimming the wrapped
+// post title when the terminal is too short to show all of it. A value of 0
+// leaves the header unconstrained.
+func (h *CommentsHeader) SetMaxHeight(maxHeight int) {
+	h.maxHeight = maxHeight
 }
 
 func (h CommentsHeader) View() string {
@@ -61,7 +69,18 @@ func (h CommentsHeader) View() string {
 
 	joinedView := lipgloss.JoinVertical(lipgloss.Left, titleView, descriptionView, authorTimestampView, pointsAndCommentsView)
 
-	return headerContainerStyle.Render(joinedView)
+	containerStyle := headerContainerStyle
+	if h.W > 0 {
+		// The metadata rows are assembled from independently styled fragments
+		// and can outgrow a narrow terminal, so cap the whole block. Without
+		// this the container wraps them and the page grows unexpectedly tall.
+		containerStyle = containerStyle.MaxWidth(h.W)
+	}
+	if h.maxHeight > 0 {
+		containerStyle = containerStyle.MaxHeight(h.maxHeight)
+	}
+
+	return containerStyle.Render(joinedView)
 }
 
 func (h *CommentsHeader) SetContent(comments model.Comments, sort model.CommentSort) {

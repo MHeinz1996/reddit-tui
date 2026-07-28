@@ -1,6 +1,11 @@
 package utils
 
-import "testing"
+import (
+	"testing"
+	"unicode/utf8"
+
+	"github.com/charmbracelet/x/ansi"
+)
 
 func TestNormalizeSubreddit(t *testing.T) {
 	tests := []struct {
@@ -30,12 +35,43 @@ func TestTruncateString(t *testing.T) {
 		{"abcde", 4, "a..."},
 		{"abcdef", 5, "ab..."},
 		{"abcdefg", 6, "abc..."},
+
+		// Multibyte text must be cut on rune boundaries, never mid-sequence.
+		{"r/Ünicöde", 6, "r/Ü..."},
+		{"r/café_lovers", 8, "r/caf..."},
+		// Wide (2-cell) runes: the budget is columns, not runes or bytes.
+		{"r/日本語のサブレディット", 10, "r/日本..."},
 	}
 
 	for _, tt := range tests {
 		got := TruncateString(tt.s, tt.width)
 		if got != tt.want {
 			t.Errorf("got %s, want %s with input %s", got, tt.want, tt.s)
+		}
+	}
+}
+
+// Slicing by byte offset used to split multibyte runes, producing invalid UTF-8
+// that the terminal cannot measure, which corrupted the surrounding redraw.
+func TestTruncateStringKeepsValidUtf8(t *testing.T) {
+	inputs := []string{
+		"r/日本語のサブレディット",
+		"r/Ünicöde_subreddit_name",
+		"r/café_lovers_united",
+		"r/🚀🚀🚀🚀🚀🚀🚀🚀",
+		"r/emoji⚠️warning⚠️signs",
+	}
+
+	for _, in := range inputs {
+		for w := 1; w <= 20; w++ {
+			got := TruncateString(in, w)
+			if !utf8.ValidString(got) {
+				t.Errorf("TruncateString(%q, %d) = %q, which is not valid UTF-8", in, w, got)
+			}
+			if w > 3 && ansi.StringWidth(got) > w {
+				t.Errorf("TruncateString(%q, %d) = %q, width %d exceeds budget %d",
+					in, w, got, ansi.StringWidth(got), w)
+			}
 		}
 	}
 }

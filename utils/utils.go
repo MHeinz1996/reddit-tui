@@ -2,6 +2,8 @@ package utils
 
 import (
 	"fmt"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
 func NormalizeSubreddit(subreddit string) string {
@@ -16,14 +18,18 @@ func NormalizeSubreddit(subreddit string) string {
 	return fmt.Sprintf("r/%s", subreddit)
 }
 
+// TruncateString shortens s so it occupies at most w terminal cells, appending
+// an ellipsis when it has to cut. Width is measured in display cells rather
+// than bytes so multibyte text (CJK, accents, emoji) is never sliced mid-rune,
+// which would emit invalid UTF-8 and corrupt the terminal's width accounting.
 func TruncateString(s string, w int) string {
 	if w <= 0 {
 		return s
-	} else if len(s) <= w || len(s) <= 3 {
+	} else if ansi.StringWidth(s) <= w || w <= 3 {
 		return s
 	}
 
-	return fmt.Sprintf("%s...", s[:w-3])
+	return ansi.Truncate(s, w, "...")
 }
 
 func Clamp(min, max, val int) int {

@@ -21,6 +21,10 @@ const (
 	subredditNotFoundText    = "Subreddit not found"
 )
 
+// minListHeight is how many rows the post list keeps for itself before the
+// header is allowed to grow into them.
+const minListHeight = 4
+
 type PostsPage struct {
 	Subreddit      string
 	sort           model.Sort
@@ -182,8 +186,20 @@ func (p PostsPage) View() string {
 		return p.containerStyle.Render("")
 	}
 
-	headerView := p.header.View()
-	listView := p.list.View()
+	var (
+		headerView = p.header.View()
+		listView   = p.list.View()
+		innerH     = p.containerStyle.GetHeight() - p.containerStyle.GetVerticalFrameSize()
+	)
+
+	// The list keeps a minimum height of its own, so on a very short terminal it
+	// can render taller than the rows it was given. Clip it rather than let the
+	// page overflow the screen.
+	if innerH > 0 {
+		available := max(1, innerH-lipgloss.Height(headerView))
+		listView = lipgloss.NewStyle().MaxHeight(available).Render(listView)
+	}
+
 	joined := lipgloss.JoinVertical(lipgloss.Left, headerView, listView)
 	return p.containerStyle.Render(joined)
 }
@@ -203,15 +219,24 @@ func (p *PostsPage) Blur() {
 
 func (p *PostsPage) resizeComponents() {
 	var (
-		w            = p.containerStyle.GetWidth() - p.containerStyle.GetHorizontalFrameSize()
-		h            = p.containerStyle.GetHeight() - p.containerStyle.GetVerticalFrameSize()
-		listWidth    = w - postsListStyle.GetHorizontalFrameSize()
-		headerHeight = lipgloss.Height(p.header.View())
-		listHeight   = h - headerHeight
+		w         = p.containerStyle.GetWidth() - p.containerStyle.GetHorizontalFrameSize()
+		h         = p.containerStyle.GetHeight() - p.containerStyle.GetVerticalFrameSize()
+		listWidth = w - postsListStyle.GetHorizontalFrameSize()
 	)
 
+	// Size the header before measuring it: its height depends on how far the
+	// description wraps, which depends on the width being set first. Measuring
+	// beforehand uses the previous width and leaves the page too tall after a
+	// resize, which overflows the terminal and corrupts the redraw.
 	p.header.SetSize(w, h)
-	p.list.SetSize(listWidth, listHeight)
+
+	// Reserve room for the list. On a short or narrow terminal the wrapped
+	// description can otherwise claim every available row (and then some),
+	// pushing the page past the bottom of the screen.
+	headerHeight := min(lipgloss.Height(p.header.View()), max(0, h-minListHeight))
+	p.header.SetMaxHeight(headerHeight)
+
+	p.list.SetSize(listWidth, h-headerHeight)
 }
 
 func (p *PostsPage) loadHome() tea.Cmd {

@@ -61,6 +61,10 @@ func (c CommentsViewport) Update(msg tea.Msg) (CommentsViewport, tea.Cmd) {
 		case key.Matches(msg, c.keyMap.ShowFullHelp),
 			key.Matches(msg, c.keyMap.CloseFullHelp):
 			c.help.ShowAll = !c.help.ShowAll
+			// Full help occupies several rows instead of one, so the viewport
+			// has to give that space back or the page outgrows the terminal.
+			c.ResizeComponents()
+			c.ensureSelectedVisible()
 			return c, nil
 		}
 	}
@@ -73,12 +77,24 @@ func (c CommentsViewport) Update(msg tea.Msg) (CommentsViewport, tea.Cmd) {
 func (c CommentsViewport) View() string {
 	viewportView := viewportStyle.Render(c.viewport.View())
 	helpView := c.help.View(c.keyMap)
+
+	// The full help block has a fixed natural height that cannot shrink. On a
+	// short terminal it must be clipped rather than allowed to push the page
+	// past the bottom of the screen.
+	if c.h > 0 {
+		helpView = lipgloss.NewStyle().MaxHeight(max(1, c.h-lipgloss.Height(viewportView))).Render(helpView)
+	}
+
 	return lipgloss.JoinVertical(lipgloss.Left, viewportView, helpView)
 }
 
 func (c *CommentsViewport) SetSize(w, h int) {
 	c.w = w - viewportStyle.GetHorizontalFrameSize()
 	c.h = h
+
+	// The help view is joined outside viewportStyle, so it gets the full width.
+	// Constraining it is what keeps it from overflowing and soft-wrapping.
+	c.help.Width = w
 
 	c.ResizeComponents()
 	c.SetViewportContent()
@@ -103,8 +119,11 @@ func (c *CommentsViewport) SetContent(comments model.Comments) {
 func (c *CommentsViewport) ResizeComponents() {
 	helpHeight := lipgloss.Height(c.help.View(c.keyMap))
 
-	c.viewport.Width = c.w
-	c.viewport.Height = c.h - helpHeight - 1
+	c.viewport.Width = max(1, c.w)
+	// viewportStyle contributes a bottom margin, hence the extra row. Clamp at
+	// zero so a cramped terminal cannot produce a negative height, which the
+	// viewport would render as content overflowing its bounds.
+	c.viewport.Height = max(0, c.h-helpHeight-viewportStyle.GetVerticalFrameSize())
 }
 
 func (c *CommentsViewport) GetViewportView() string {
@@ -148,9 +167,22 @@ func (c *CommentsViewport) SetViewportContent() {
 	c.viewport.SetContent(content)
 }
 
+// minCommentWidth is the narrowest content column a deeply nested comment may
+// be squeezed into. Without a floor, indentation eventually exceeds the
+// available width and lipgloss receives a zero or negative Width, at which
+// point it stops wrapping altogether and emits lines wider than the terminal.
+const minCommentWidth = 20
+
 func (c *CommentsViewport) formatComment(comment model.Comment, i int) string {
 	paddingW := comment.Depth * 2
-	containerStyle := lipgloss.NewStyle().PaddingLeft(paddingW).Width(c.w - paddingW)
+	if maxPadding := c.w - minCommentWidth; paddingW > maxPadding {
+		paddingW = max(0, maxPadding)
+	}
+
+	// Derive the content column from the (already clamped) padding so the two
+	// always sum to at most c.w, even when c.w itself is below the floor.
+	contentW := max(1, c.w-paddingW)
+	containerStyle := lipgloss.NewStyle().PaddingLeft(paddingW).Width(contentW)
 
 	if c.collapsed[i] && c.showsHiddenPlaceholder(i) {
 		hiddenMsg := collapsedStyle.Render("(comment hidden)")

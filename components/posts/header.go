@@ -26,6 +26,7 @@ type PostsHeader struct {
 	Title            string
 	Description      string
 	W                int
+	maxHeight        int
 }
 
 func NewPostsHeader() PostsHeader {
@@ -37,12 +38,31 @@ func (h *PostsHeader) SetSize(width, height int) {
 	h.DescriptionStyle = h.DescriptionStyle.Width(h.W)
 }
 
+// SetMaxHeight caps how many rows the header may occupy, trimming the wrapped
+// description when the terminal is too short to show all of it. A value of 0
+// leaves the header unconstrained.
+func (h *PostsHeader) SetMaxHeight(maxHeight int) {
+	h.maxHeight = maxHeight
+}
+
 func (h PostsHeader) View() string {
 	titleView := titleStyle.Render(utils.TruncateString(h.Title, h.W))
 	descriptionView := h.DescriptionStyle.Render(h.Description)
 
 	joinedView := lipgloss.JoinVertical(lipgloss.Left, titleView, descriptionView)
-	return headerContainerStyle.Render(joinedView)
+
+	containerStyle := headerContainerStyle
+	if h.W > 0 {
+		// The styled title bar can outgrow a narrow terminal, so cap the whole
+		// block. Without this the container wraps it and the page grows
+		// unexpectedly tall.
+		containerStyle = containerStyle.MaxWidth(h.W)
+	}
+	if h.maxHeight > 0 {
+		containerStyle = containerStyle.MaxHeight(h.maxHeight)
+	}
+
+	return containerStyle.Render(joinedView)
 }
 
 func (h *PostsHeader) SetContent(title, desc string) {

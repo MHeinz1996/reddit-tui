@@ -13,6 +13,10 @@ import (
 
 var commentsErrorText = "Could not load comments. Please try again in a few moments."
 
+// minPagerHeight is how many rows the pager keeps for itself before the header
+// is allowed to grow into them.
+const minPagerHeight = 4
+
 type CommentsPage struct {
 	redditClient   client.RedditClient
 	header         CommentsHeader
@@ -119,8 +123,19 @@ func (c CommentsPage) handleFocusedMessages(msg tea.Msg) (CommentsPage, tea.Cmd)
 }
 
 func (c CommentsPage) View() string {
-	headerView := c.header.View()
-	pagerView := c.pager.View()
+	var (
+		headerView = c.header.View()
+		pagerView  = c.pager.View()
+		innerH     = c.containerStyle.GetHeight() - c.containerStyle.GetVerticalFrameSize()
+	)
+
+	// Final guard: whatever the components produce, the page must not exceed the
+	// rows the terminal gave us, or the redraw desynchronizes and duplicates.
+	if innerH > 0 {
+		available := max(1, innerH-lipgloss.Height(headerView))
+		pagerView = lipgloss.NewStyle().MaxHeight(available).Render(pagerView)
+	}
+
 	joined := lipgloss.JoinVertical(lipgloss.Center, headerView, pagerView)
 	return c.containerStyle.Render(joined)
 }
@@ -140,14 +155,23 @@ func (c *CommentsPage) Blur() {
 
 func (c *CommentsPage) resizeComponents() {
 	var (
-		w            = c.containerStyle.GetWidth() - c.containerStyle.GetHorizontalFrameSize()
-		h            = c.containerStyle.GetHeight() - c.containerStyle.GetVerticalFrameSize()
-		headerHeight = lipgloss.Height(c.header.View())
-		pagerHeight  = h - headerHeight
+		w = c.containerStyle.GetWidth() - c.containerStyle.GetHorizontalFrameSize()
+		h = c.containerStyle.GetHeight() - c.containerStyle.GetVerticalFrameSize()
 	)
 
+	// Size the header before measuring it: its height depends on how far the
+	// description wraps, which depends on the width being set first. Measuring
+	// beforehand uses the previous width and leaves the page too tall after a
+	// resize, which overflows the terminal and corrupts the redraw.
 	c.header.SetSize(w, h)
-	c.pager.SetSize(w, pagerHeight)
+
+	// Reserve room for the pager. On a short or narrow terminal the wrapped
+	// header can otherwise claim every available row (and then some), pushing
+	// the page past the bottom of the screen.
+	headerHeight := min(lipgloss.Height(c.header.View()), max(0, h-minPagerHeight))
+	c.header.SetMaxHeight(headerHeight)
+
+	c.pager.SetSize(w, h-headerHeight)
 }
 
 func (c CommentsPage) fetchComments() tea.Cmd {
