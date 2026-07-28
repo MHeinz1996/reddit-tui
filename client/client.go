@@ -62,6 +62,20 @@ func (r RedditClient) CleanCache() {
 	r.commentsClient.Cache.Clean()
 }
 
+func (r RedditClient) InvalidatePostsCache(subreddit string, sort model.Sort) {
+	postsUrl := r.postsClient.BuildPostsUrl(subreddit, "", sort)
+	r.postsClient.Cache.Delete(postsUrl)
+}
+
+func (r RedditClient) InvalidateCommentsCache(baseURL string, sort model.CommentSort) {
+	url, err := comments.BuildCommentsUrl(baseURL, sort)
+	if err != nil {
+		return
+	}
+
+	r.commentsClient.Cache.Delete(url)
+}
+
 func InitializeCaches(baseUrl string, bypassCache bool) (cache.PostsCache, cache.CommentsCache) {
 	if bypassCache {
 		return cache.NewNoOpPostsCache(), cache.NewNoOpCommentsCache()

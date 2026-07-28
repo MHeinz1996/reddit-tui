@@ -78,6 +78,9 @@ func (c CommentsPage) handleGlobalMessages(msg tea.Msg) (CommentsPage, tea.Cmd) 
 		c.sort = msg.Sort
 		return c, c.fetchComments()
 
+	case messages.RefreshCommentsMsg:
+		return c, c.refreshComments()
+
 	case messages.UpdateCommentsMsg:
 		c.updateComments(model.Comments(msg))
 		return c, messages.LoadingComplete
@@ -98,6 +101,9 @@ func (c CommentsPage) handleFocusedMessages(msg tea.Msg) (CommentsPage, tea.Cmd)
 
 		case "o", "O":
 			return c, messages.OpenUrl(c.postUrl)
+
+		case "r", "R":
+			return c, messages.RefreshComments()
 
 		case "1", "2", "3", "4", "5":
 			sort, ok := model.CommentSortForKey(keypress)
@@ -154,6 +160,11 @@ func (c CommentsPage) fetchComments() tea.Cmd {
 
 		return messages.UpdateCommentsMsg(comments)
 	}
+}
+
+func (c CommentsPage) refreshComments() tea.Cmd {
+	c.redditClient.InvalidateCommentsCache(c.commentsUrl, c.sort)
+	return c.fetchComments()
 }
 
 func (c *CommentsPage) updateComments(comments model.Comments) {

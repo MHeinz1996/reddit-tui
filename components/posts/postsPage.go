@@ -108,6 +108,12 @@ func (p PostsPage) handleGlobalMessages(msg tea.Msg) (PostsPage, tea.Cmd) {
 			return p, p.reloadPosts()
 		}
 
+	case messages.RefreshPostsMsg:
+		isHome := bool(msg)
+		if p.Home == isHome {
+			return p, p.refreshPosts()
+		}
+
 	case messages.UpdatePostsMsg:
 		posts := model.Posts(msg)
 		if posts.IsHome == p.Home {
@@ -148,6 +154,9 @@ func (p PostsPage) handleFocusedMessages(msg tea.Msg) (PostsPage, tea.Cmd) {
 
 		case "L":
 			return p, messages.LoadMorePosts(p.Home)
+
+		case "r", "R":
+			return p, messages.RefreshPosts(p.Home)
 
 		case "1", "2", "3", "4", "5":
 			sort, ok := model.SortForKey(keypress)
@@ -242,6 +251,16 @@ func (p *PostsPage) reloadPosts() tea.Cmd {
 
 		return messages.UpdatePostsMsg(posts)
 	}
+}
+
+func (p *PostsPage) refreshPosts() tea.Cmd {
+	if p.Home {
+		p.redditClient.InvalidatePostsCache("", p.sort)
+	} else {
+		p.redditClient.InvalidatePostsCache(p.Subreddit, p.sort)
+	}
+
+	return p.reloadPosts()
 }
 
 func (p *PostsPage) loadMorePosts() tea.Cmd {

@@ -14,17 +14,17 @@ import (
 )
 
 type CommentsViewport struct {
-	viewport        viewport.Model
-	postText        string
-	postUrl         string
-	comments        []model.Comment
-	keyMap          viewportKeyMap
-	help            help.Model
-	collapsed       map[int]bool
-	selectedIndex   int
+	viewport         viewport.Model
+	postText         string
+	postUrl          string
+	comments         []model.Comment
+	keyMap           viewportKeyMap
+	help             help.Model
+	collapsed        map[int]bool
+	selectedIndex    int
 	commentStartLine map[int]int
 	commentEndLine   map[int]int
-	w, h            int
+	w, h             int
 }
 
 func NewCommentsViewport() CommentsViewport {

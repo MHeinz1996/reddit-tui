@@ -27,6 +27,8 @@ type (
 	LoadHomeMsg        struct{}
 	LoadMorePostsMsg   bool
 	LoadSubredditMsg   string
+	RefreshCommentsMsg struct{}
+	RefreshPostsMsg    bool
 	UpdateCommentsMsg  model.Comments
 	UpdatePostsMsg     model.Posts
 	AddMorePostsMsg    model.Posts
@@ -80,6 +82,18 @@ func LoadSubreddit(subreddit string) tea.Cmd {
 func LoadComments(url string) tea.Cmd {
 	return func() tea.Msg {
 		return LoadCommentsMsg(url)
+	}
+}
+
+func RefreshPosts(home bool) tea.Cmd {
+	return func() tea.Msg {
+		return RefreshPostsMsg(home)
+	}
+}
+
+func RefreshComments() tea.Cmd {
+	return func() tea.Msg {
+		return RefreshCommentsMsg{}
 	}
 }
 

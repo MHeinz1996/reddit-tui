@@ -17,6 +17,7 @@ import (
 type CommentsCache interface {
 	Get(path string) (model.Comments, error)
 	Put(comments model.Comments, path string) error
+	Delete(path string)
 	Clean()
 }
 
@@ -101,6 +102,20 @@ func (f FileCommentsCache) Put(comments model.Comments, filename string) error {
 	}
 
 	return nil
+}
+
+func (f FileCommentsCache) Delete(filename string) {
+	subreddit := f.GetSubredditFromUrl(filename)
+	if len(subreddit) == 0 {
+		return
+	}
+
+	sanitizedFilename := url.QueryEscape(filename) + ".json"
+	cacheFilePath := filepath.Join(f.CacheBaseDir, subreddit, sanitizedFilename)
+
+	if err := os.Remove(cacheFilePath); err != nil && !os.IsNotExist(err) {
+		slog.Debug("Could not delete cache file.", "path", cacheFilePath, "error", err)
+	}
 }
 
 func (f FileCommentsCache) GetSubredditFromUrl(commentsUrl string) string {
@@ -210,6 +225,8 @@ func (n NoOpCommentsCache) Get(cacheFilePath string) (comments model.Comments, e
 func (n NoOpCommentsCache) Put(comments model.Comments, cacheFilePath string) error {
 	return nil
 }
+
+func (n NoOpCommentsCache) Delete(cacheFilePath string) {}
 
 func (n NoOpCommentsCache) Clean() {
 }

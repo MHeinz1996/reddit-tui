@@ -3,11 +3,11 @@ package model
 type CommentSort string
 
 const (
-	CommentSortBest           CommentSort = "confidence"
-	CommentSortNew            CommentSort = "new"
-	CommentSortTop            CommentSort = "top"
-	CommentSortControversial  CommentSort = "controversial"
-	CommentSortOld            CommentSort = "old"
+	CommentSortBest          CommentSort = "confidence"
+	CommentSortNew           CommentSort = "new"
+	CommentSortTop           CommentSort = "top"
+	CommentSortControversial CommentSort = "controversial"
+	CommentSortOld           CommentSort = "old"
 )
 
 func (s CommentSort) Label() string {

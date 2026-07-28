@@ -3,16 +3,17 @@ package posts
 import "github.com/charmbracelet/bubbles/key"
 
 type postsKeyMap struct {
-	Home   key.Binding
-	Search key.Binding
-	Sort   key.Binding
-	SortHot key.Binding
-	SortNew key.Binding
-	SortRising key.Binding
-	SortTop key.Binding
+	Home              key.Binding
+	Search            key.Binding
+	Sort              key.Binding
+	SortHot           key.Binding
+	SortNew           key.Binding
+	SortRising        key.Binding
+	SortTop           key.Binding
 	SortControversial key.Binding
-	Back   key.Binding
-	Load   key.Binding
+	Back              key.Binding
+	Load              key.Binding
+	Refresh           key.Binding
 }
 
 var postsKeys = postsKeyMap{
@@ -46,12 +47,15 @@ var postsKeys = postsKeyMap{
 	Load: key.NewBinding(
 		key.WithKeys("L"),
 		key.WithHelp("L", "load more posts")),
+	Refresh: key.NewBinding(
+		key.WithKeys("r"),
+		key.WithHelp("r", "refresh")),
 }
 
 func (k postsKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Home, k.Search, k.Sort, k.Load}
+	return []key.Binding{k.Home, k.Search, k.Sort, k.Load, k.Refresh}
 }
 
 func (k postsKeyMap) FullHelp() []key.Binding {
-	return []key.Binding{k.Home, k.Search, k.SortHot, k.SortNew, k.SortRising, k.SortTop, k.SortControversial, k.Back, k.Load}
+	return []key.Binding{k.Home, k.Search, k.SortHot, k.SortNew, k.SortRising, k.SortTop, k.SortControversial, k.Back, k.Load, k.Refresh}
 }

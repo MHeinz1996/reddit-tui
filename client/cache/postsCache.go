@@ -15,6 +15,7 @@ import (
 type PostsCache interface {
 	Get(path string) (model.Posts, error)
 	Put(posts model.Posts, cacheFilePath string) error
+	Delete(path string)
 	Clean()
 }
 
@@ -84,6 +85,15 @@ func (f FilePostsCache) Put(posts model.Posts, filename string) error {
 	return nil
 }
 
+func (f FilePostsCache) Delete(filename string) {
+	sanitizedFilename := url.QueryEscape(filename) + ".json"
+	cacheFilePath := filepath.Join(f.CacheBaseDir, sanitizedFilename)
+
+	if err := os.Remove(cacheFilePath); err != nil && !os.IsNotExist(err) {
+		slog.Debug("Could not delete cache file.", "path", cacheFilePath, "error", err)
+	}
+}
+
 func (f FilePostsCache) Clean() {
 	filepath.WalkDir(f.CacheBaseDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -145,6 +155,8 @@ func (n NoOpPostsCache) Get(cacheFilePath string) (posts model.Posts, err error)
 func (n NoOpPostsCache) Put(posts model.Posts, cacheFilePath string) error {
 	return nil
 }
+
+func (n NoOpPostsCache) Delete(cacheFilePath string) {}
 
 func (f NoOpPostsCache) Clean() {
 }

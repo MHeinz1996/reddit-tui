@@ -9,9 +9,9 @@ func TestBuildCommentsUrl(t *testing.T) {
 	baseURL := "https://old.reddit.com/r/dogs/comments/abc123/title/"
 
 	tests := []struct {
-		name  string
-		sort  model.CommentSort
-		want  string
+		name string
+		sort model.CommentSort
+		want string
 	}{
 		{
 			name: "best omits sort param",
