@@ -1,6 +1,7 @@
 package comments
 
 import (
+	"fmt"
 	"reddittui/model"
 	"strings"
 	"testing"
@@ -12,6 +13,57 @@ func testComments() []model.Comment {
 		{Author: "b", Text: "reply", Depth: 1},
 		{Author: "c", Text: "nested", Depth: 2},
 		{Author: "d", Text: "root2", Depth: 0},
+	}
+}
+
+// Line bookkeeping must match the rendered content exactly. When the tracked
+// numbers run ahead, ensureSelectedVisible scrolls to rows that do not exist,
+// which shifts the page up until the selected comment is off screen.
+func TestCommentLineNumbersMatchRenderedContent(t *testing.T) {
+	for _, wrapping := range []bool{false, true} {
+		c := NewCommentsViewport()
+		c.w = 40
+		c.h = 20
+		c.postText = "post line one\npost line two"
+
+		for i := range 8 {
+			comment := model.Comment{
+				Author:    fmt.Sprintf("user%d", i),
+				Text:      fmt.Sprintf("body%d", i),
+				Timestamp: "1h",
+				Points:    "5 points",
+			}
+			if wrapping {
+				// Nesting plus long text forces multi-line comments, so a
+				// per-comment height error cannot cancel itself out.
+				comment.Depth = i % 4
+				comment.Text = strings.Repeat(comment.Text+" ", 6)
+			}
+			c.comments = append(c.comments, comment)
+		}
+
+		lines := strings.Split(c.GetViewportView(), "\n")
+
+		for i := range c.comments {
+			author := fmt.Sprintf("user%d ", i)
+			renderedStart := -1
+			for n, line := range lines {
+				if strings.Contains(line, author) {
+					renderedStart = n
+					break
+				}
+			}
+
+			if got := c.commentStartLine[i]; got != renderedStart {
+				t.Errorf("wrapping=%v comment %d: start line %d, rendered at %d", wrapping, i, got, renderedStart)
+			}
+			if got := c.commentEndLine[i]; got > len(lines)-1 {
+				t.Errorf("wrapping=%v comment %d: end line %d past content of %d lines", wrapping, i, got, len(lines))
+			}
+			if got := c.commentEndLine[i]; got < c.commentStartLine[i] {
+				t.Errorf("wrapping=%v comment %d: end line %d before start line %d", wrapping, i, got, c.commentStartLine[i])
+			}
+		}
 	}
 }
 

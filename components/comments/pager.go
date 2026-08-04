@@ -138,16 +138,17 @@ func (c *CommentsViewport) GetViewportView() string {
 	c.commentStartLine = make(map[int]int)
 	c.commentEndLine = make(map[int]int)
 
-	postSection := parts[0]
-	lineOffset := lipgloss.Height(postSection)
-	currentLine := lineOffset
+	// Parts are joined with a blank line between them, so each part occupies its
+	// own height plus exactly one separator row. Counting more than that makes
+	// the tracked line numbers run ahead of the rendered content, and
+	// ensureSelectedVisible then scrolls past the selected comment.
+	currentLine := lipgloss.Height(parts[0]) + 1
 
 	for i := range c.comments {
 		if c.isHidden(i) {
 			continue
 		}
 
-		c.commentStartLine[i] = currentLine
 		commentView := c.formatComment(c.comments[i], i)
 		if len(commentView) == 0 {
 			continue
@@ -155,8 +156,9 @@ func (c *CommentsViewport) GetViewportView() string {
 
 		parts = append(parts, commentView)
 		commentHeight := lipgloss.Height(commentView)
-		currentLine += commentHeight + 2
-		c.commentEndLine[i] = currentLine - 3
+		c.commentStartLine[i] = currentLine
+		c.commentEndLine[i] = currentLine + commentHeight - 1
+		currentLine += commentHeight + 1
 	}
 
 	return strings.Join(parts, "\n\n")
