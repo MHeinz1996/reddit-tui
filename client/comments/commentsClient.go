@@ -77,11 +77,26 @@ func (r RedditCommentsClient) GetComments(baseURL string, sort model.CommentSort
 	}
 
 	if res.StatusCode != http.StatusOK {
-		slog.Error("Error fetching comments from server", "StatusCode", res.StatusCode)
+		slog.Error("Error fetching comments from server", "StatusCode", res.StatusCode, "url", url)
+
+		if authErr := common.AuthErrorForStatus(res.StatusCode); authErr != nil {
+			return comments, authErr
+		}
+
 		return comments, common.ErrNotFound
 	}
 
 	defer res.Body.Close()
+
+	// Must precede parsing and caching below: r.Cache.Put stores whatever it is
+	// given, so a login page would be cached as a legitimately-empty comments
+	// page and outlive re-authentication.
+	if common.IsLoginRedirect(res) {
+		slog.Error("Request was redirected to the login page; session cookie missing or expired",
+			"url", url,
+			"finalUrl", res.Request.URL.String())
+		return comments, common.ErrNotAuthenticated
+	}
 
 	timer = utils.NewTimer("parsing comments html")
 	doc, err := html.Parse(res.Body)

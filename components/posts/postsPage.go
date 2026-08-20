@@ -246,7 +246,7 @@ func (p *PostsPage) loadHome() tea.Cmd {
 		posts, err := p.redditClient.GetHomePosts("", p.sort)
 		if err != nil {
 			slog.Error(postsErrorText, "error", err)
-			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
+			return messages.LoadError(err, postsErrorText)
 		}
 
 		return messages.UpdatePostsMsg(posts)
@@ -271,7 +271,7 @@ func (p *PostsPage) reloadPosts() tea.Cmd {
 			return messages.ShowErrorModalMsg{ErrorMsg: fmt.Sprintf("%s: %s", subredditNotFoundText, p.Subreddit)}
 		} else if err != nil {
 			slog.Error(postsErrorText, "error", err)
-			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
+			return messages.LoadError(err, postsErrorText)
 		}
 
 		return messages.UpdatePostsMsg(posts)
@@ -308,7 +308,7 @@ func (p *PostsPage) loadMorePosts() tea.Cmd {
 
 		if err != nil {
 			slog.Error(postsErrorText, "error", err)
-			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
+			return messages.LoadError(err, postsErrorText)
 		}
 
 		return messages.AddMorePostsMsg(posts)
@@ -325,7 +325,7 @@ func (p PostsPage) loadSubreddit(subreddit string) tea.Cmd {
 			return messages.ShowErrorModalMsg{ErrorMsg: fmt.Sprintf("%s: %s", subredditNotFoundText, subreddit)}
 		} else if err != nil {
 			slog.Error(postsErrorText, "error", err)
-			return messages.ShowErrorModalMsg{ErrorMsg: postsErrorText}
+			return messages.LoadError(err, postsErrorText)
 		}
 
 		return messages.UpdatePostsMsg(posts)

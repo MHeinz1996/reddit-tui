@@ -32,6 +32,9 @@ func NewRedditClient(configuration config.Config) RedditClient {
 	timeoutSeconds := max(configuration.Core.ClientTimeout, configuration.Client.TimeoutSeconds)
 	httpClient := &http.Client{
 		Timeout: time.Duration(timeoutSeconds) * time.Second,
+		// Authenticates every request made by both the posts and comments
+		// clients, which share this http.Client.
+		Jar: newSessionCookieJar(baseUrl, configuration.Auth.SessionCookie),
 	}
 
 	postsCache, commentsCache := InitializeCaches(baseUrl, configuration.Core.BypassCache)

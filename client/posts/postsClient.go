@@ -121,11 +121,29 @@ func (r RedditPostsClient) getPosts(url string) (posts model.Posts, err error) {
 	if err != nil {
 		return posts, err
 	} else if res.StatusCode != http.StatusOK {
-		// Treat all non-200s as 404s
+		slog.Error("Error fetching posts from server",
+			"StatusCode", res.StatusCode,
+			"url", url)
+
+		if authErr := common.AuthErrorForStatus(res.StatusCode); authErr != nil {
+			return posts, authErr
+		}
+
+		// Treat remaining non-200s as 404s
 		return posts, common.ErrCannotLoadPosts
 	}
 
 	defer res.Body.Close()
+
+	// Must precede parsing: a login bounce arrives as a 200 full of login HTML,
+	// which would otherwise parse to zero posts and be misreported as a missing
+	// subreddit.
+	if common.IsLoginRedirect(res) {
+		slog.Error("Request was redirected to the login page; session cookie missing or expired",
+			"url", url,
+			"finalUrl", res.Request.URL.String())
+		return posts, common.ErrNotAuthenticated
+	}
 
 	timer = utils.NewTimer("parsing posts html")
 	doc, err := html.Parse(res.Body)

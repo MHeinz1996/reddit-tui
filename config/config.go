@@ -5,14 +5,16 @@ import (
 	"os"
 	"path/filepath"
 	"reddittui/utils"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 const (
-	configFilename    = "reddittui.toml"
-	defaultDomainName = "old.reddit.com"
-	defaultServerType = "old"
+	configFilename      = "reddittui.toml"
+	defaultDomainName   = "old.reddit.com"
+	defaultServerType   = "old"
+	sessionCookieEnvVar = "REDDITTUI_SESSION_COOKIE"
 )
 
 type Config struct {
@@ -20,6 +22,7 @@ type Config struct {
 	Filter FilterConfig `toml:"filter"`
 	Client ClientConfig `toml:"client"`
 	Server ServerConfig `toml:"server"`
+	Auth   AuthConfig   `toml:"auth"`
 }
 
 type CoreConfig struct {
@@ -43,6 +46,12 @@ type ServerConfig struct {
 	Type   string
 }
 
+type AuthConfig struct {
+	// SessionCookie is the reddit_session cookie value copied from a browser.
+	// It grants full access to the account, so it is never logged.
+	SessionCookie string
+}
+
 func NewConfig() Config {
 	return Config{
 		Core: CoreConfig{
@@ -57,7 +66,19 @@ func NewConfig() Config {
 	}
 }
 
+// LoadConfig reads the config file, then applies the REDDITTUI_SESSION_COOKIE
+// environment override on top of it.
 func LoadConfig() (Config, error) {
+	configuration, err := loadConfigFromFile()
+
+	if envCookie, ok := os.LookupEnv(sessionCookieEnvVar); ok {
+		configuration.Auth.SessionCookie = strings.TrimSpace(envCookie)
+	}
+
+	return configuration, err
+}
+
+func loadConfigFromFile() (Config, error) {
 	defaultConfig := NewConfig()
 
 	configDir, err := utils.GetConfigDir()
@@ -93,6 +114,16 @@ func LoadConfig() (Config, error) {
 	}
 
 	mergedConfig := mergeConfig(defaultConfig, configFromFile, meta)
+	mergedConfig.Auth.SessionCookie = strings.TrimSpace(mergedConfig.Auth.SessionCookie)
+
+	// The session cookie grants full account access, so don't leave the file
+	// world-readable once one is stored in it.
+	if mergedConfig.Auth.SessionCookie != "" {
+		if chmodErr := os.Chmod(configPath, 0600); chmodErr != nil {
+			slog.Warn("Could not restrict permissions on config file", "error", chmodErr)
+		}
+	}
+
 	return mergedConfig, err
 }
 
@@ -132,6 +163,10 @@ func mergeConfig(left, right Config, meta toml.MetaData) Config {
 
 	if meta.IsDefined("server", "type") {
 		left.Server.Type = right.Server.Type
+	}
+
+	if meta.IsDefined("auth", "sessionCookie") {
+		left.Auth.SessionCookie = right.Auth.SessionCookie
 	}
 
 	return left

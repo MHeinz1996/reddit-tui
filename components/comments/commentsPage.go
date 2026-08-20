@@ -179,7 +179,7 @@ func (c CommentsPage) fetchComments() tea.Cmd {
 		comments, err := c.redditClient.GetComments(c.commentsUrl, c.sort)
 		if err != nil {
 			slog.Error(commentsErrorText, "error", err)
-			return messages.ShowErrorModalMsg{ErrorMsg: commentsErrorText}
+			return messages.LoadError(err, commentsErrorText)
 		}
 
 		return messages.UpdateCommentsMsg(comments)

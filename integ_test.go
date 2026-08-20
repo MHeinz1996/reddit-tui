@@ -149,6 +149,53 @@ func TestLoadInitialSubredditAndCanGoBack(t *testing.T) {
 	WaitForWithInputs(t, tm, "h", "The front page of the internet")
 }
 
+// With no session at all, reddit answers with a 302 to its login page, which
+// http.Client follows into a 200 full of login HTML. That used to parse to zero
+// posts and get reported as a missing subreddit.
+func TestStartupWithNoSessionShowsActionableError(t *testing.T) {
+	t.Logf("Testing startup with no session cookie...")
+	configuration := getTestConfig()
+	configuration.Auth.SessionCookie = ""
+
+	tui := components.NewRedditTui(configuration, "", "")
+	tm := teatest.NewTestModel(t, tui, teatest.WithInitialTermSize(300, 100))
+
+	t.Logf("\tVerify the session error names the setting to update...")
+	WaitFor(t, tm, "expired", "sessionCookie", "reddit_session")
+}
+
+// A rejected session must produce an actionable message naming the setting to
+// fix, rather than the generic "check the logfile" text or a bogus "subreddit
+// not found". Reddit answers an invalid cookie with 403, so this is
+// deterministic regardless of whether a real session is configured locally.
+func TestStartupWithInvalidSessionShowsActionableError(t *testing.T) {
+	t.Logf("Testing startup with an invalid session cookie...")
+	configuration := getTestConfig()
+	configuration.Auth.SessionCookie = "definitely-not-a-valid-session"
+
+	tui := components.NewRedditTui(configuration, "", "")
+	tm := teatest.NewTestModel(t, tui, teatest.WithInitialTermSize(300, 100))
+
+	t.Logf("\tVerify the session error names the setting to update...")
+	// Matching single tokens, since the modal wraps longer text.
+	WaitFor(t, tm, "expired", "sessionCookie", "reddit_session")
+}
+
+// The session messages are long, and the modal applies both a wrapping Width
+// and a truncating MaxWidth. Guard against the actionable part being cut off in
+// an ordinary 80-column terminal.
+func TestSessionErrorSurvivesNarrowTerminal(t *testing.T) {
+	t.Logf("Testing session error in an 80x24 terminal...")
+	configuration := getTestConfig()
+	configuration.Auth.SessionCookie = ""
+
+	tui := components.NewRedditTui(configuration, "", "")
+	tm := teatest.NewTestModel(t, tui, teatest.WithInitialTermSize(80, 24))
+
+	t.Logf("\tVerify the setting name is still visible...")
+	WaitFor(t, tm, "sessionCookie")
+}
+
 func WaitFor(t *testing.T, tm *teatest.TestModel, messages ...string) {
 	WaitForWithInputs(t, tm, "", messages...)
 }
@@ -182,6 +229,11 @@ func getTestConfig() config.Config {
 		configuration.Server.Domain = domain
 		configuration.Server.Type = serverType
 	}
+
+	// old.reddit.com redirects logged-out requests to a login page, so the
+	// tests below that expect real content need a session. Export
+	// REDDITTUI_SESSION_COOKIE to run them.
+	configuration.Auth.SessionCookie = os.Getenv("REDDITTUI_SESSION_COOKIE")
 
 	return configuration
 }

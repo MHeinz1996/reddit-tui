@@ -90,7 +90,13 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if r.initializing && msg.OnClose == nil {
 			slog.Error("Error during initialization")
 			if r.loadingPage == HomePage {
+				// Actionable messages already say how to fix the problem, so
+				// don't bury them under the generic logfile pointer.
 				errorMsg := "Could not initialize reddittui. Check the logfile for details."
+				if msg.Actionable {
+					errorMsg = msg.ErrorMsg
+				}
+
 				return r, messages.ShowErrorModalWithCallback(errorMsg, tea.Quit)
 			}
 
