@@ -14,6 +14,7 @@ type postsKeyMap struct {
 	Back              key.Binding
 	Load              key.Binding
 	Refresh           key.Binding
+	Redraw            key.Binding
 }
 
 var postsKeys = postsKeyMap{
@@ -50,6 +51,9 @@ var postsKeys = postsKeyMap{
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "refresh")),
+	Redraw: key.NewBinding(
+		key.WithKeys("ctrl+l"),
+		key.WithHelp("ctrl+l", "redraw")),
 }
 
 func (k postsKeyMap) ShortHelp() []key.Binding {
@@ -57,5 +61,5 @@ func (k postsKeyMap) ShortHelp() []key.Binding {
 }
 
 func (k postsKeyMap) FullHelp() []key.Binding {
-	return []key.Binding{k.Home, k.Search, k.SortHot, k.SortNew, k.SortRising, k.SortTop, k.SortControversial, k.Back, k.Load, k.Refresh}
+	return []key.Binding{k.Home, k.Search, k.SortHot, k.SortNew, k.SortRising, k.SortTop, k.SortControversial, k.Back, k.Load, k.Refresh, k.Redraw}
 }

@@ -9,6 +9,7 @@ type viewportKeyMap struct {
 	GoToEnd           key.Binding
 	OpenPost          key.Binding
 	Refresh           key.Binding
+	Redraw            key.Binding
 	GoHome            key.Binding
 	Sort              key.Binding
 	SortBest          key.Binding
@@ -47,6 +48,10 @@ var commentsKeys = viewportKeyMap{
 	Refresh: key.NewBinding(
 		key.WithKeys("r"),
 		key.WithHelp("r", "refresh"),
+	),
+	Redraw: key.NewBinding(
+		key.WithKeys("ctrl+l"),
+		key.WithHelp("ctrl+l", "redraw"),
 	),
 	GoHome: key.NewBinding(
 		key.WithKeys("H"),
@@ -98,5 +103,6 @@ func (k viewportKeyMap) FullHelp() [][]key.Binding {
 		{k.CursorUp, k.CursorDown, k.GoToStart, k.GoToEnd, k.OpenPost},
 		{k.SortBest, k.SortNew, k.SortTop, k.SortControversial, k.SortOld},
 		{k.GoHome, k.Refresh, k.CollapseComments, k.Quit, k.CloseFullHelp},
+		{k.Redraw},
 	}
 }

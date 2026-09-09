@@ -38,6 +38,9 @@ type RedditTui struct {
 	prevPage      pageType
 	loadingPage   pageType
 	initCmd       tea.Cmd
+	// rerender is set while a refresh is in flight so the new content gets a
+	// full repaint instead of a diff against the old frame.
+	rerender bool
 }
 
 func NewRedditTui(configuration config.Config, subreddit, post string) RedditTui {
@@ -126,7 +129,7 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		r.popup = false
 		r.focusActivePage()
 		cmd = r.modalManager.Blur()
-		return r, cmd
+		return r, tea.Batch(cmd, r.consumeRerender())
 
 	case messages.GoBackMsg:
 		r.goBack()
@@ -176,16 +179,18 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messages.RefreshPostsMsg:
 		r.focusModal()
 		r.loadingPage = r.page
+		r.rerender = true
 
 		cmd = r.modalManager.SetLoading("refreshing posts...")
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, cmd, tea.ClearScreen)
 
 	case messages.RefreshCommentsMsg:
 		r.focusModal()
 		r.loadingPage = CommentsPage
+		r.rerender = true
 
 		cmd = r.modalManager.SetLoading("refreshing comments...")
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, cmd, tea.ClearScreen)
 
 	case messages.LoadCommentsMsg:
 		r.focusModal()
@@ -212,6 +217,11 @@ func (r RedditTui) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c":
 			return r, tea.Quit
+
+		// Repaint on demand, without refetching. Handled here rather than per
+		// page so it also works while a modal is up.
+		case "ctrl+l":
+			return r, tea.ClearScreen
 		}
 	}
 
@@ -279,7 +289,21 @@ func (r *RedditTui) completeLoading() tea.Cmd {
 	r.setPage(r.loadingPage)
 	r.focusActivePage()
 
-	return r.modalManager.Blur()
+	return tea.Batch(r.modalManager.Blur(), r.consumeRerender())
+}
+
+// consumeRerender clears the screen once after a refresh, so the freshly laid
+// out page is painted from scratch. Wide runes such as emoji can leave the
+// terminal's idea of the cursor column out of step with ours, and the renderer
+// only rewrites lines it thinks have changed, so the stale cells survive a
+// plain content update.
+func (r *RedditTui) consumeRerender() tea.Cmd {
+	if !r.rerender {
+		return nil
+	}
+
+	r.rerender = false
+	return tea.ClearScreen
 }
 
 func (r *RedditTui) focusModal() {
