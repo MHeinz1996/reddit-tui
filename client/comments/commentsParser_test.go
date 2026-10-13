@@ -49,6 +49,15 @@ func TestRenderHtmlNodeListWithPlainTextItem(t *testing.T) {
 	}
 }
 
+func TestNormalizeContentStripsSkinTones(t *testing.T) {
+	got := normalizeContent("\U0001f446\U0001f3fd100% this. Scum of the earth.")
+	want := "\U0001f446100% this. Scum of the earth."
+
+	if got != want {
+		t.Fatalf("normalizeContent() = %q, want %q", got, want)
+	}
+}
+
 func TestRenderHtmlNodeMixedContent(t *testing.T) {
 	got := renderMdHTML(`<div class="md"><p>Intro</p><ul><li><p>Bullet</p></li></ul></div>`)
 	want := "Intro\n- Bullet"

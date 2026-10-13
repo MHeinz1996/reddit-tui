@@ -20,7 +20,7 @@ func (p OldRedditCommentsParser) ParseComments(root common.HtmlNode, url string)
 	var commentsData model.Comments
 	var commentsList []model.Comment
 
-	commentsData.PostTitle = p.getTitle(root)
+	commentsData.PostTitle = utils.SanitizeDisplayText(p.getTitle(root))
 	commentsData.PostAuthor, commentsData.PostAuthorFlair = p.getPostAuthorInfo(root)
 	commentsData.PostTimestamp = p.getPostTimestamp(root)
 	commentsData.Subreddit = p.getSubreddit(root)
@@ -226,7 +226,7 @@ func (p RedlibCommentsParser) ParseComments(root common.HtmlNode, url string) mo
 		commentsData.Subreddit = p.getSubreddit(headerNode)
 	}
 
-	commentsData.PostTitle = p.getTitle(root)
+	commentsData.PostTitle = utils.SanitizeDisplayText(p.getTitle(root))
 	commentsData.PostPoints = p.getPostPoints(mainNode)
 	commentsData.Comments = p.parseCommentsList(mainNode, 0, commentsList)
 

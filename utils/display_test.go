@@ -42,6 +42,29 @@ func TestSanitizeDisplayTextPreservesWidth(t *testing.T) {
 	}
 }
 
+func TestSanitizeDisplayTextStripsSkinTones(t *testing.T) {
+	const zwj = "‍"
+
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"pointing up", "\U0001f446\U0001f3fd100% this", "\U0001f446100% this"},
+		{"every tone", "\U0001f44d\U0001f3fb\U0001f44d\U0001f3fc\U0001f44d\U0001f3fd\U0001f44d\U0001f3fe\U0001f44d\U0001f3ff", "\U0001f44d\U0001f44d\U0001f44d\U0001f44d\U0001f44d"},
+		{"zwj sequence", "\U0001f469\U0001f3fd" + zwj + "\U0001f680", "\U0001f469" + zwj + "\U0001f680"},
+		{"untoned emoji untouched", "\U0001f446 plain", "\U0001f446 plain"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SanitizeDisplayText(tt.in); got != tt.want {
+				t.Errorf("SanitizeDisplayText(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSanitizeDisplayTextKeepsLoadBearingJoiners(t *testing.T) {
 	const (
 		vs16 = "️"

@@ -2,6 +2,7 @@ package comments
 
 import (
 	"reddittui/client/common"
+	"reddittui/utils"
 	"strings"
 )
 
@@ -24,5 +25,6 @@ func findMarkdownSource(contentRoot common.HtmlNode) string {
 }
 
 func normalizeContent(text string) string {
+	text = utils.SanitizeDisplayText(text)
 	return postTextTrimRegex.ReplaceAllString(strings.TrimSpace(text), "\n\n")
 }
